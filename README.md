@@ -2,9 +2,9 @@
 
 **You draw. It solves.**
 
-**Current version: V0.1.21 Alpha Dev Build**
+**Current version: V0.1.49 Alpha Dev Build**
 
-PrometheusCAD is a portable 2D drawing and shop-math utility for machinists, inspectors, hobbyists, and anyone who needs quick geometry without CAM bloat.
+PrometheusCAD is a portable 2D drawing, emerging 3D modeling, and shop-math utility for machinists, inspectors, hobbyists, and anyone who needs quick geometry without CAM bloat.
 
 It is meant to be simple, useful, and portable.
 
@@ -75,15 +75,15 @@ The surface plate exists.
 
 1. **Inch/metric switch**
 
-   Treat this as `document units = inch / mm` rather than multiplying every coordinate by 25.4. PrometheusCAD's internal geometry should remain unit-neutral.
+   Completed in V0.1.33. PrometheusCAD now treats this as `document units = inch / mm`; the stored geometry remains stable while inputs, readouts, dimensions, and exports are converted for the user.
 
 2. **Layers**
 
-   Flesh out the rudimentary layer system into actual create, rename, delete, current-layer, and visibility behavior. Layers should become infrastructure that later geometry, text, and selections can live inside cleanly.
+   The layer foundation now supports creation, renaming, a current layer, locking, masking, and layer-aware geometry. Add layer deletion and any later layer-management refinements without changing the unit-neutral geometry model.
 
 3. **Text**
 
-   Add native text entities first, including position, content, size, rotation, layer, selection, delete, copy/paste, and undo/redo behavior.
+   Native single-line text entities now support position, content, height, layers, whole-block selection, deletion, copy/paste, and undo/redo. Add text rotation and later editing refinements before converting text into geometry.
 
 4. **Text → Geometry**
 
@@ -1125,3 +1125,433 @@ Changes made since V0.1.20:
 - Endpoint connectivity is geometric, allowing independently stored lines and arcs with matching coordinates to chain together.
 - Chain selections are added to any entities that were already selected, while clicking empty drawing space clears the selection.
 - Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.21.
+
+## V0.1.22 Alpha Dev Build
+
+Multi-Entity Mirror and Axis Correction
+
+Changes made since V0.1.21:
+
+- Mirror now operates on every currently selected entity as one Undo/Redo action.
+- Made the axis transformations explicit: X Axis preserves X and negates Y; Y Axis negates X and preserves Y; X and Y Axes negate both coordinates.
+- Mirror with Copy duplicates the complete selection and selects the mirrored copies.
+- Shared point relationships within a mirrored selection remain shared instead of creating disconnected duplicates.
+- Unselected geometry that shares a visible point with the mirrored selection is detached through a hidden construction reference so it remains unchanged.
+- Added mirror support for linear, radius, diameter, and angle dimensions.
+- Reflected arcs reverse their endpoint order when required so their visible sweep remains correct.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.22.
+
+## V0.1.23 Alpha Dev Build
+
+Multi-Entity Translate
+
+Changes made since V0.1.22:
+
+- Activated Modify > Translate for all currently selected entities.
+- Added a movable, minimizable, maximizable, and closable Translate window with X and Y distance fields defaulting to zero.
+- Added arithmetic expression support to both translation distance fields.
+- Added an unchecked Copy option for producing translated duplicates while retaining the source geometry.
+- X-only, Y-only, and combined X/Y translations are supported.
+- Multiple selected points, lines, circles, arcs, and dimensions translate together as one Undo/Redo action.
+- Shared point relationships inside the translated selection remain shared.
+- Unselected geometry that shares a selected visible point is detached through a hidden construction reference so it remains stationary.
+- Translate with Copy selects the newly created copies after the operation.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.23.
+
+## V0.1.24 Alpha Dev Build
+
+Future Line Commands
+
+Changes made since V0.1.23:
+
+- Added inactive Angle and Tangent placeholders to the Draw > Line flyout.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.24.
+
+## V0.1.25 Alpha Dev Build
+
+Line by Angle and Length
+
+Changes made since V0.1.24:
+
+- Activated Draw > Line > Angle as a persistent line construction tool.
+- Added a movable, minimizable, maximizable, and closable Line - Angle window with arithmetic-capable Angle and Length fields.
+- Point sources start the line at the selected point using the established axis orientation: 0° right, 90° up, 180° left, and 270° down.
+- Circle and arc sources start the line at the entity center and use the axis orientation.
+- Line sources start at the endpoint nearest the click location.
+- Selecting a line enables Relative to options for using either the selected line's stored orientation or the global axis orientation.
+- Added a live dashed preview of the resulting angled line.
+- Created angle lines remain geometrically independent of their source entity and include visible endpoint points consistent with coordinate-created lines.
+- Line - Angle remains active after creation so additional angled lines can be created until another command is chosen or the tool is canceled.
+- Each created angled line is recorded as one Undo/Redo history action.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.25.
+
+## V0.1.26 Alpha Dev Build
+
+Tangent Lines by Angle
+
+Changes made since V0.1.25:
+
+- Activated Draw > Line > Tangent as a persistent line construction tool.
+- Added a movable, minimizable, maximizable, and closable Line - Tangent window with arithmetic-capable Angle and Length fields.
+- The entered angle locates the tangent point using the established orientation: 0° right, 90° up, 180° left, and 270° down.
+- The specified line is perpendicular to the radius at that location and centered on the exact tangent point.
+- Circles and arcs can be selected as tangent sources.
+- Arcs are treated as complete hypothetical circles, allowing tangent angles outside the visible arc sweep without modifying the arc.
+- Points are treated as zero-radius circles; the tangent line is centered on the point and oriented perpendicular to the entered radial angle.
+- Added a live dashed preview of the resulting tangent line.
+- Created tangent lines are geometrically independent from their source entity and include visible endpoint points.
+- Line - Tangent remains active after creation so additional tangent lines can be created until another command is chosen or the tool is canceled.
+- Each created tangent line is recorded as one Undo/Redo history action.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.26.
+
+## V0.1.27 Alpha Dev Build
+
+Future Point and Translate Commands
+
+Changes made since V0.1.26:
+
+- Added inactive End and Incremental placeholders to the Draw > Points flyout.
+- Converted Modify > Translate into a hover flyout.
+- Renamed the existing active Translate command to By Coordinates without changing its dialog or multi-entity behavior.
+- Added an inactive By Points placeholder to the Translate flyout.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.27.
+
+## V0.1.28 Alpha Dev Build
+
+Layer Foundation
+
+Changes made since V0.1.27:
+
+- Replaced the placeholder Layer menu with a dynamic list of document layers and a ten-layer maximum.
+- Added New to create and immediately select a new layer.
+- Added a three-dot management flyout to every layer with Rename, Lock/Unlock, and Mask/Unmask commands.
+- Existing geometry belongs to Layer 0, while newly created geometry belongs to the current layer.
+- Only the current, unlocked, unmasked layer can be selected or edited; other visible layers remain as subdued drawing references.
+- Masked layers are hidden from the drawing, the visible entity count, and Fit bounds.
+- Copy can capture entities from the current layer, and Paste places independent copies on whichever layer is current at paste time.
+- Identical Cartesian geometry can coexist on different layers without being merged by point or line reuse checks.
+- Layer creation, renaming, locking, masking, and current-layer state participate in Undo/Redo snapshots.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.28.
+
+## V0.1.29 Alpha Dev Build
+
+Point at Entity End
+
+Changes made since V0.1.28:
+
+- Activated Draw > Points > End as a persistent point-construction command.
+- Clicking a line places a point at whichever endpoint is closest to the click.
+- Clicking an arc places a point at whichever arc endpoint is closest to the click.
+- Clicking a circle places a point at its established 0° position at 3 o'clock.
+- Existing visible points at the resolved location are reused instead of duplicated.
+- Lines and arcs with hidden construction endpoints receive an independent visible point without changing their stored geometry.
+- Point - End only works with geometry on the current unlocked and unmasked layer.
+- Choosing another command or pressing Escape exits Point - End.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.29.
+
+## V0.1.30 Alpha Dev Build
+
+Incremental Point Translation
+
+Changes made since V0.1.29:
+
+- Activated Draw > Points > Incremental for translating one selected point by entered X and Y amounts.
+- Added a movable, minimizable, maximizable, and closable Point - Incremental window.
+- X and Y increments default to zero and support the existing arithmetic-expression behavior.
+- Added an unchecked Copy option for creating an independent translated point while retaining the source point.
+- Moving a point detaches unselected dependent geometry to hidden construction references so that the geometry remains unchanged.
+- Incremental copies are created on the current layer and become the selected point after creation.
+- The command requires exactly one visible point selected on the current unlocked and unmasked layer.
+- Incremental moves and copies are each recorded as one Undo/Redo action.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.30.
+
+## V0.1.31 Alpha Dev Build
+
+Translate by Points
+
+Changes made since V0.1.30:
+
+- Activated Modify > Translate > By Points for one or more previously selected entities.
+- Added a movable, minimizable, maximizable, and closable Translate - By Points window.
+- The command captures the selected entities independently from its two reference points.
+- Clicking a first and second visible point defines the translation vector as `second point - first point`.
+- The dialog reports both reference points and the resulting X and Y translation distances.
+- Entity proximity to either reference point has no effect; the complete X/Y vector is applied to every selected entity.
+- Added an unchecked Copy option using the same independent-copy behavior as Translate > By Coordinates.
+- Additional point clicks restart reference-point selection, allowing the vector to be corrected before applying it.
+- Move and Copy operations use the shared translation engine, including multi-entity relationships, layer behavior, dimensions, and dependency detachment.
+- Translate by Points operations are recorded as one Undo/Redo action.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.31.
+
+## V0.1.32 Alpha Dev Build
+
+Isometric Preview
+
+Changes made since V0.1.31:
+
+- Added a centered 3D button between the Help menu and the right-side quick-tool buttons.
+- The button uses the existing square toolbar styling with black `3D` text and reverses to white text on a black background while active.
+- Added a view-only isometric projection using a 45° Y-axis yaw and a 35.264° X-axis pitch.
+- Entering Isometric fits all visible geometry to the canvas; an empty drawing uses an isometric Home view.
+- Circles and arcs are projected with the rest of the SVG geometry, and visible geometry bounds are sampled before fitting.
+- The axes and tick marks follow the isometric projection and are regenerated for the projected viewport.
+- Isometric mode disables drawing-surface interaction and CAD mutation commands until the user returns to 2D.
+- Clicking 3D again, or pressing Escape, restores the exact saved 2D center, zoom, viewport, and navigation anchor.
+- The button exposes its active state with `aria-pressed` and updates its accessible label between Isometric and Return to 2D.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.32.
+
+## V0.1.33 Alpha Dev Build
+
+Inch and Metric Document Units
+
+Changes made since V0.1.32:
+
+- Added a Units dropdown between Layer and Help with Inch and Metric choices.
+- Inch is the default document unit; the selected unit is marked in the dropdown and shown in the status bar.
+- Geometry remains stored in a stable internal canonical scale rather than being repeatedly multiplied or divided when the unit changes.
+- Metric coordinate, distance, diameter, and radius entries are interpreted as millimetres and converted to the canonical geometry scale at the input boundary.
+- Switching units converts every populated length-entry field so existing dialog values retain the same physical meaning.
+- Coordinate readouts, hover descriptions, command results, lengths, radii, diameters, and linear/radial dimensions display in the selected document unit.
+- Angle, percentage, and count fields remain unitless and are not converted.
+- Axis ticks change from half/full-inch intervals to 5/10 mm intervals in Metric mode.
+- DXF export now writes coordinate and radius values in the selected document unit and sets `$MEASUREMENT` appropriately for Inch or Metric.
+- Unit switching leaves entity geometry and the current viewport physically unchanged.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.33.
+
+## V0.1.34 Alpha Dev Build
+
+Two-Entity Linear Dimensions
+
+Changes made since V0.1.33:
+
+- Changed Dimension > Linear from the former one-line-length shortcut into a first-entity, second-entity workflow.
+- Linear dimensions now measure the shortest distance between two distinct points, finite lines, circles, or arcs on the current editable layer.
+- The first picked entity remains highlighted until the second entity is chosen.
+- Pick locations resolve equivalent measurement positions while the numeric dimension remains the exact geometric distance.
+- Touching or intersecting entities report a zero-distance condition instead of creating an unreadable zero-length dimension.
+- Linear Dimension remains active after creation and returns to the first-entity step for another measurement.
+- Each completed dimension remains an independent selectable entity with existing delete, copy/paste, layer, unit, and Undo/Redo behavior.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.34.
+
+## V0.1.35 Alpha Dev Build
+
+Forgiving Menu Hover Timing
+
+Changes made since V0.1.34:
+
+- Dropdown menus and nested flyouts now remain open briefly when the pointer drifts outside them.
+- The default close delay is 500 milliseconds, and returning before the delay expires cancels the pending close.
+- The same behavior applies to the dynamically generated layer-management flyouts.
+- The delay can be tuned in one place near the top of `main.js` by changing `MENU_HOVER_CLOSE_DELAY_MS`.
+- Choosing a command still dismisses its menu immediately.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.35.
+
+## V0.1.36 Alpha Dev Build
+
+Context-Aware Menu Hover Timing
+
+Changes made since V0.1.35:
+
+- Retained the 500-millisecond grace period when the pointer leaves a dropdown or flyout for the rest of the interface.
+- Added a shorter 100-millisecond close delay when moving between dropdowns or between flyouts in the same dropdown.
+- Kept both timing values together near the top of `main.js` as `MENU_HOVER_CLOSE_DELAY_MS` and `MENU_SWITCH_CLOSE_DELAY_MS` for easy adjustment.
+- Returning to a menu before either delay expires still cancels its pending close.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.36.
+
+## V0.1.37 Alpha Dev Build
+
+Select Entities by Layer
+
+Changes made since V0.1.36:
+
+- Converted Select > Layer into a flyout populated from the document's current layer list.
+- Every layer appears in the flyout, including Layer 0 when it is the only layer.
+- Layer entries use the live layer name and therefore update immediately after a rename.
+- Locked and masked layers remain visible for context but are disabled and cannot be selected.
+- Choosing an available layer cumulatively selects all of its visible geometry and dimensions while excluding hidden construction-reference points.
+- Selecting entities by layer does not change the current drawing layer or clear entities that were already selected.
+- Empty layers report that no selectable entities were found and preserve the current selection.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.37.
+
+## V0.1.38 Alpha Dev Build
+
+Native Text Placement
+
+Changes made since V0.1.37:
+
+- Added an active Draw > Text command and a movable, minimizable, maximizable Text dialog.
+- The dialog accepts a unit-aware Text Height arithmetic expression and single-line text content, defaulting to `0.250` and `Type text here...`.
+- Valid text follows the pointer as a live preview with a temporary outer-bounds box and bottom-center insertion point.
+- One drawing click places the text at the insertion point and removes the temporary placement aids.
+- Text is stored as a native document entity rather than line/arc geometry and is therefore not included in DXF geometry export yet.
+- Each text block participates in the current layer, drawing bounds, Fit view, scroll extents, hover descriptions, cumulative selection, deletion, copy/paste, and Undo/Redo as one entity.
+- Locked or masked layer behavior applies to text in the same way as the existing drawing entities.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.38.
+
+## V0.1.39 Alpha Dev Build
+
+Defined or Point-Centered Shapes
+
+Changes made since V0.1.38:
+
+- Converted Draw > Hexagon, Rectangle, and Bolt Hole Circle into flyouts with Point Center and Define Center commands.
+- Point Center selects and highlights an existing point on the current editable layer before enabling shape creation.
+- Define Center exposes unit-aware, arithmetic-capable X and Y coordinate fields in each tool's existing dialog.
+- Added the missing coordinate-center workflow to Hexagon and the missing point-center workflow to Rectangle.
+- Generalized Bolt Hole Circle from its former fixed X0 Y0 center so either an existing point or entered X/Y coordinates can locate the pattern.
+- Bolt Hole Circle still starts its first hole at the established 0° direction from the chosen center.
+- Geometry created from a Point Center uses the point's coordinates at creation time and remains independent if that source point is later deleted.
+- Preserved each tool's existing size, radius, hole-count, layer, unit, arithmetic, history, and dialog-window behavior.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.39.
+
+## V0.1.40 Alpha Dev Build
+
+3D Mouse Navigation
+
+Changes made since V0.1.39:
+
+- Added interactive camera navigation to the existing 3D Isometric view without changing any entity coordinates or orientations.
+- Left click cumulatively selects an entity; clicking empty drawing space clears the selection. The selection path is also prepared for future face and solid entity classes.
+- Left drag performs directional region selection: left-to-right is a Window selection requiring full enclosure, while right-to-left is a Crossing selection that includes touched entities.
+- Right drag orbits the camera after crossing a configurable five-pixel movement threshold. A stationary right click is reserved for a future context menu, and the browser's native context menu is suppressed in 3D mode.
+- Orbit uses the center of the selected visible entities as its pivot, falling back to the center of all visible geometry and then X0 Y0 for an empty document.
+- Middle-button drag pans in both the normal 2D view and the 3D view.
+- The mouse wheel zooms toward the cursor position in both 2D and 3D instead of always zooming toward the canvas center.
+- Escape cancels an in-progress orbit, pan, or region selection and restores the camera position from the start of that gesture. With no gesture in progress, Escape still returns from 3D to the saved 2D view.
+- Kept the drag threshold, orbit sensitivity, pitch limits, and wheel zoom factor together near the viewport constants in `main.js` for easy adjustment.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.40.
+
+## V0.1.41 Alpha Dev Build
+
+Two Dimensional and Three Dimensional Workspace Architecture
+
+Changes made since V0.1.40:
+
+- Replaced the former view-only Isometric state with an explicit 2D or 3D workspace mode while preserving the saved 2D camera exactly when switching workspaces.
+- The complete existing Draw menu remains unchanged in 2D and is replaced in 3D by a Model menu containing the planned Primitives, profile operation, and Boolean hierarchy.
+- Box, Cylinder, Sphere, Cone, Extrude Profile, Sweep Profile, Revolve Profile, Union, Subtract, and Intersect are deliberately disabled roadmap commands rather than controls that appear active but do nothing.
+- Kept Modify as a shared menu. Trim/Extend is hidden in 3D, face or surface Offset is explicitly disabled as planned work, and Translate by Points is disabled until native 3D reference points exist.
+- Added a separate `model3d.solids` document collection with its own identifiers. The first rendering adapter accepts genuine XYZ boundary vertices, indexed faces, layers, and transforms rather than treating solids as projected 2D entities; the geometry payload remains open to a later analytic/B-rep or CSG kernel.
+- Established profile independence as a document invariant: future Extrude, Sweep, and Revolve commands must copy evaluated profile geometry into a new solid, leaving the source 2D entities unchanged and recording any source reference as provenance only.
+- Extended the camera projection from the original Z0 drawing plane to true XYZ points, while retaining the exact established projection for every existing 2D entity.
+- Added a depth-sorted SVG face renderer and independent solid and face selection namespace. Click, Window/Crossing selection, hover feedback, selection coloring, and orbit pivots can now recognize future solid records.
+- 3D Translate uses arithmetic-capable X, Y, and Z fields, retains Copy, supports multiple selected solids, and records one Undo/Redo action.
+- 3D Rotate uses the same dialog with X, Y, and Z origin-axis choices and operates on every selected solid without changing the camera.
+- 3D Mirror renames the choices to XY, XZ, and YZ planes, applies the conventional coordinate reflection, retains Copy, and preserves face winding after reflection.
+- Copy, Paste, Cut, Delete, Undo, and Redo now use the active workspace and keep 2D entities separate from 3D solids.
+- View Zoom In, Zoom Out, Home, and Fit now operate in both workspaces. View Window is disabled in 3D because left drag is reserved for Window/Crossing selection.
+- Select keeps All, Single, and Deselect All in 3D while hiding 2D-only Chain, Layer, Points, Lines, Arcs, and Dimensions choices. The Dimension menu similarly shows a clear planned 3D placeholder instead of active 2D commands.
+- No primitive creation command was activated in this architectural pass; the Model hierarchy now provides a stable place to add them one at a time.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.41.
+
+## V0.1.42 Alpha Dev Build
+
+Box Primitive
+
+Changes made since V0.1.41:
+
+- Activated Model -> Primitives -> Box as the first native 3D primitive and kept every other primitive and modeling operation outside this release.
+- Added a movable, minimizable, maximizable Box dialog with arithmetic-capable Position X/Y/Z, Length, Width, Height, and Draft Angle fields. Defaults are X0 Y0 Z0, Length 2.000, Width 1.000, Height 1.000, and 0° draft in the current document units.
+- Defined position as the center of the bottom face: Length follows X, Width follows Y, the bottom is at Z, and Height extends along positive Z.
+- Implemented signed draft with a fixed bottom face. Positive draft slopes inward and negative draft slopes outward; the top dimensions are calculated as `bottom - 2 * height * tan(draft)`.
+- Invalid, non-finite, zero-size, collapsed, and inverted results are rejected with an explanation. Geometry is never silently clamped.
+- Each Box owns an analytic definition, a closed topological boundary with eight identified vertices, twelve connected edges, and six identified planar faces, and an independent affine transform matrix. The SVG display is derived from that solid topology rather than serving as the geometry source of truth.
+- Stored stable bottom, top, front, right, back, and left face identities, stable edge identities, explicit face-edge connectivity, outward local-space normals and planes, closure validation, Euler characteristic, and signed volume for later face/edge operations.
+- Creating a Box records exactly one Undo/Redo action, selects the complete new solid, fits it into the 3D view, and uses the current editable layer. Existing selection, hover, Copy, Paste, Cut, Delete, layer visibility/locking, and theme colors apply without a second 3D interaction system.
+- Replaced the provisional translation/rotation/scale adapter with a 4x4 affine matrix. Existing 3D Translate, Rotate, and Mirror now transform the solid without rewriting its canonical topology; mirrored display winding is corrected at render time.
+- Inch/Metric changes convert Box dialog values and all displayed dimensions while preserving the stored physical geometry.
+- Existing 2D entities, drawing tools, selection, history, and saved 2D camera behavior remain independent and unchanged.
+- Current limitations are deliberate: only Box creation is supported; face and edge identities can be selected/rendered but cannot yet be edited; there is no Cylinder, Sphere, Cone, Extrude, Boolean, 3D Fillet, or Chamfer; and the SVG renderer is a faceted reference renderer rather than a production modeling kernel.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.42.
+
+## V0.1.43 Alpha Dev Build
+
+Viewport-Aware Floating Dialogs
+
+Changes made since V0.1.42:
+
+- Reworked the Box dialog into a wider two-column layout with Position on the left and Dimensions on the right, without reducing text or input sizes.
+- Added a responsive Box layout that stacks Position and Dimensions vertically whenever the dialog is manually narrowed or the available workspace becomes too narrow for two readable columns.
+- Established one shared floating-window policy for every PrometheusCAD tool dialog: the adjustable `TOOL_WINDOW_MAX_WORKSPACE_HEIGHT_RATIO` constant defaults to `0.88`, limiting dialogs to 88% of the drawing workspace height.
+- Tool title bars remain outside the scrolling region and dialog action rows remain sticky at the bottom, so Create, Continue, Apply, and Cancel controls stay available while oversized form contents scroll internally.
+- Dialogs are fitted against the actual drawing workspace rather than only the browser viewport. Opening a dialog, resizing the browser, resizing a dialog, or completing a drag automatically brings the complete window back within accessible workspace bounds.
+- Enabled native horizontal and vertical resizing for tool windows while preserving minimum readable dimensions, input widths, and text sizes. Maximized and minimized windows disable manual resizing until restored.
+- Each dialog retains its most recent inline size and position for the current PrometheusCAD session; restored bounds are re-clamped whenever the current workspace is smaller.
+- Applied the same height, interior scrolling, resizing, and workspace-clamping principles to the floating Calculator window.
+- Preserved all existing minimize, maximize, close, Escape, arithmetic, geometry, history, and selection behavior.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.43.
+
+## V0.1.44 Alpha Dev Build
+
+Orbit Pitch Direction
+
+Changes made since V0.1.43:
+
+- Reversed only the vertical mouse delta used by right-drag 3D orbiting: dragging down now pulls the model down, and dragging up pulls it up.
+- Kept horizontal yaw direction, middle-drag panning, wheel zooming, orbit pivot selection, pitch limits, camera-only behavior, and all model coordinates unchanged.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.44.
+
+## V0.1.45 Alpha Dev Build
+
+World-Axis Trihedron
+
+Changes made since V0.1.44:
+
+- Added a 3D-only world-axis trihedron anchored at the drawing origin X0 Y0 Z0, with a red X arrow, green Y arrow, and blue Z arrow.
+- Built each arrow as a twelve-sided projected cylinder shaft and cone arrowhead rather than selectable CAD geometry.
+- Kept the trihedron in a dedicated visual-reference layer outside `documentModel.entities` and `model3d.solids`; it cannot be selected, deleted, copied, exported to DXF, or included in drawing bounds and Fit calculations.
+- Rebuilds the trihedron projection immediately during orbiting so it follows camera yaw and pitch while remaining fixed to the world origin.
+- Converts its pixel dimensions back into view-space dimensions on every render, keeping its visual size consistent through wheel zoom, Zoom In/Out, Home, Fit, and canvas resizing.
+- Added View -> Show Trihedron with a checkmark reflecting the current visibility preference. The command is disabled in 2D and becomes available automatically in the 3D workspace.
+- Trihedron visibility is a view preference rather than document history and does not create an Undo/Redo entry.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.45.
+
+## V0.1.46 Alpha Dev Build
+
+Trihedron Visibility Repair
+
+Changes made since V0.1.45:
+
+- Fixed the world-axis trihedron remaining invisible even though its cylinder and cone faces were generated correctly.
+- The cause was SVG-specific: assigning `.hidden = false` to an SVG `<g>` does not remove its HTML `hidden` attribute, so the trihedron layer remained `display: none` after entering 3D or toggling it on.
+- Replaced property assignment with explicit `toggleAttribute("hidden", ...)` handling for the trihedron and solid-rendering SVG layers.
+- Visually verified the red X, green Y, and blue Z arrows on the rendered 3D canvas, then rechecked View -> Show Trihedron off/on behavior and automatic hiding when returning to 2D.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.46.
+
+## V0.1.47 Alpha Dev Build
+
+Z-Axis Horizontal Orbit
+
+Changes made since V0.1.46:
+
+- Changed horizontal right-drag orbiting from rotation around the world Y axis in the XZ plane to rotation around the world Z axis in the XY plane.
+- Adopted the conventional Z-up isometric camera basis: at Home, Z projects vertically upward while X and Y project diagonally across the screen.
+- Updated the shared XYZ projection, Z0 inverse projection used for grid coverage, and the SVG transform used by existing 2D profiles so points, profiles, solids, and the trihedron remain registered under the same camera.
+- Preserved the established horizontal drag direction, the repaired vertical pitch direction, pitch limits, orbit pivot behavior, middle-drag panning, pointer-centered zooming, and unchanged model coordinates.
+- Home continues to restore 45° yaw and 35.264° pitch, now interpreted as yaw about world Z followed by pitch about the camera-horizontal axis.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.47.
+
+## V0.1.48 Alpha Dev Build
+
+Right-Handed Camera and Yaw Direction
+
+Changes made since V0.1.47:
+
+- Reversed horizontal right-drag yaw so dragging right pulls the model to the right and dragging left pulls it to the left.
+- Corrected the Z-up camera basis to the machinist's right-hand convention. Looking from positive Z toward negative Z now places positive X to the right, positive Y upward, and positive Z toward the viewer.
+- Removed the mirrored XY screen orientation introduced in V0.1.47 while retaining yaw about world Z and pitch about the camera-horizontal axis.
+- Updated the 2D profile SVG transform and Z0 inverse projection to remain exactly aligned with the corrected full XYZ projection.
+- The world-axis trihedron continues to build each arrow from X0 Y0 Z0 toward its positive endpoint; under the corrected camera, its red +X, green +Y, and blue +Z arrows now follow the same right-handed convention as the model.
+- Preserved the repaired vertical pitch direction, camera-only orbit behavior, orbit pivot, panning, zooming, model coordinates, and all document geometry.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.48.
+
+## V0.1.49 Alpha Dev Build
+
+Orbit Mouse Direction Correction
+
+Changes made since V0.1.48:
+
+- Reversed both mouse input deltas used by right-drag orbiting: horizontal movement now drives yaw in the opposite direction, and vertical movement drives pitch in the opposite direction.
+- Kept the right-handed Z-up coordinate convention established in V0.1.48 unchanged: top view remains +X right, +Y up, and +Z toward the viewer.
+- Kept the trihedron's positive-axis endpoints, model coordinates, projection basis, orbit pivot, pitch limits, panning, and zooming unchanged.
+- Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.49.

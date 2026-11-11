@@ -59,28 +59,51 @@ body[data-theme="matrix"] {
 }
 
 .tool-window {
+  --tool-window-workspace-left: 8px;
+  --tool-window-workspace-top: 8px;
+  --tool-window-max-width: calc(100vw - 16px);
+  --tool-window-max-height: 88vh;
   position: fixed;
   z-index: 200;
-  width: min(360px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(360px, var(--tool-window-max-width));
+  min-width: min(300px, var(--tool-window-max-width));
+  min-height: min(150px, var(--tool-window-max-height));
+  max-width: var(--tool-window-max-width);
+  max-height: var(--tool-window-max-height);
   padding: 0;
   overflow: hidden;
+  resize: both;
   color: #ededed;
   background: #2b2c2f;
   border: 1px solid #777;
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
 }
 
+.tool-window[hidden] {
+  display: none;
+}
+
 .tool-window.is-maximized {
-  inset: 8px !important;
-  width: auto !important;
-  height: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: var(--tool-window-workspace-left) !important;
+  top: var(--tool-window-workspace-top) !important;
+  width: var(--tool-window-max-width) !important;
+  height: var(--tool-window-max-height) !important;
+  resize: none;
 }
 
 .tool-window.is-minimized {
   right: auto !important;
   bottom: auto !important;
   width: 280px !important;
+  min-width: min(280px, var(--tool-window-max-width));
+  min-height: 0;
   height: auto !important;
+  resize: none;
 }
 
 .tool-window.is-minimized .tool-window-body {
@@ -147,6 +170,11 @@ body[data-theme="matrix"] {
 }
 
 .tool-window-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   background: #2b2c2f;
 }
 
@@ -155,6 +183,8 @@ body[data-theme="matrix"] {
 }
 
 .about-content {
+  min-height: 0;
+  overflow: auto;
   padding: 28px 24px 30px;
   text-align: center;
 }
@@ -179,59 +209,125 @@ body[data-theme="matrix"] {
 }
 
 .tool-window.is-maximized .tool-window-body {
-  height: calc(100% - 35px);
-  overflow: auto;
+  overflow: hidden;
 }
 
 .tool-window.is-maximized #pointCoordinatesForm,
 .tool-window.is-maximized #lineCoordinatesForm,
+.tool-window.is-maximized #lineAngleForm,
+.tool-window.is-maximized #lineTangentForm,
 .tool-window.is-maximized #circleRadiusForm,
 .tool-window.is-maximized #hexagonForm,
 .tool-window.is-maximized #rectangleForm,
 .tool-window.is-maximized #boltHoleCircleForm,
+.tool-window.is-maximized #textForm,
 .tool-window.is-maximized #offsetForm,
 .tool-window.is-maximized #pointOnEntityForm,
 .tool-window.is-maximized #filletForm,
-.tool-window.is-maximized #rotateForm {
+.tool-window.is-maximized #rotateForm,
+.tool-window.is-maximized #pointIncrementalForm,
+.tool-window.is-maximized #translateForm,
+.tool-window.is-maximized #translateByPointsForm {
   max-width: 360px;
 }
 
 #pointCoordinatesForm,
 #lineCoordinatesForm,
+#lineAngleForm,
+#lineTangentForm,
 #circleRadiusForm,
 #hexagonForm,
 #rectangleForm,
 #boltHoleCircleForm,
+#textForm,
 #offsetForm,
 #pointOnEntityForm,
 #filletForm,
-#rotateForm {
+#rotateForm,
+#pointIncrementalForm,
+#translateForm,
+#translateByPointsForm,
+#boxForm {
   display: grid;
+  flex: 1 1 auto;
   gap: 8px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 14px 16px 16px;
+  scrollbar-gutter: stable;
+}
+
+.box-window {
+  container-name: box-dialog;
+  container-type: inline-size;
+  width: min(720px, var(--tool-window-max-width));
+}
+
+.box-primary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+}
+
+@container box-dialog (max-width: 620px) {
+  .box-primary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 #pointCoordinatesForm label,
 #lineCoordinatesForm label,
+#lineAngleForm label,
+#lineTangentForm label,
 #circleRadiusForm label,
 #hexagonForm label,
 #rectangleForm label,
 #boltHoleCircleForm label,
+#textForm label,
 #offsetForm label,
 #pointOnEntityForm label,
 #filletForm label,
-#rotateForm label {
+#rotateForm label,
+#pointIncrementalForm label,
+#translateForm label,
+#translateByPointsForm label,
+#boxForm label {
   margin-top: 4px;
   color: #d0d0d0;
   font-size: 0.8rem;
 }
 
+.model-parameter-group {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 10px 10px;
+  border: 1px solid #555;
+}
+
+.model-parameter-group legend {
+  padding: 0 5px;
+  color: #f0d36c;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
 .circle-center-readout,
 .hexagon-center-readout,
+.rectangle-center-readout,
+.bolt-hole-circle-center-readout,
+.line-angle-source-readout,
+.line-tangent-source-readout,
 .offset-source-readout,
 .point-on-entity-readout,
 .fillet-source-readout,
 .rotate-selection-readout,
+.point-incremental-selection-readout,
+.translate-selection-readout,
+.translate-by-points-readout,
 .rotate-pivot-readout {
   display: grid;
   gap: 4px;
@@ -242,10 +338,17 @@ body[data-theme="matrix"] {
 
 .circle-center-readout span,
 .hexagon-center-readout span,
+.rectangle-center-readout span,
+.bolt-hole-circle-center-readout span,
+.line-angle-source-readout span,
+.line-tangent-source-readout span,
 .offset-source-readout span,
 .point-on-entity-readout span,
 .fillet-source-readout span,
 .rotate-selection-readout span,
+.point-incremental-selection-readout span,
+.translate-selection-readout span,
+.translate-by-points-readout span,
 .rotate-pivot-readout span {
   color: #bfc2c7;
   font-size: 0.75rem;
@@ -253,10 +356,17 @@ body[data-theme="matrix"] {
 
 .circle-center-readout strong,
 .hexagon-center-readout strong,
+.rectangle-center-readout strong,
+.bolt-hole-circle-center-readout strong,
+.line-angle-source-readout strong,
+.line-tangent-source-readout strong,
 .offset-source-readout strong,
 .point-on-entity-readout strong,
 .fillet-source-readout strong,
 .rotate-selection-readout strong,
+.point-incremental-selection-readout strong,
+.translate-selection-readout strong,
+.translate-by-points-readout strong,
 .rotate-pivot-readout strong {
   color: #f0d36c;
   font-size: 0.85rem;
@@ -308,7 +418,10 @@ body[data-theme="matrix"] {
   font-weight: 600;
 }
 
-#filletForm .checkbox-row {
+#filletForm .checkbox-row,
+#pointIncrementalForm .checkbox-row,
+#translateForm .checkbox-row,
+#translateByPointsForm .checkbox-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -317,7 +430,10 @@ body[data-theme="matrix"] {
   cursor: default;
 }
 
-#filletForm .checkbox-row input {
+#filletForm .checkbox-row input,
+#pointIncrementalForm .checkbox-row input,
+#translateForm .checkbox-row input,
+#translateByPointsForm .checkbox-row input {
   width: 16px;
   height: 16px;
   margin: 0;
@@ -330,6 +446,40 @@ body[data-theme="matrix"] {
   margin: 4px 0 0;
   padding: 9px 10px 10px;
   border: 1px solid #555;
+}
+
+.line-angle-relative-options {
+  display: grid;
+  gap: 7px;
+  margin: 4px 0 0;
+  padding: 9px 10px 10px;
+  border: 1px solid #555;
+}
+
+.line-angle-relative-options legend {
+  padding: 0 4px;
+  color: #d0d0d0;
+  font-size: 0.8rem;
+}
+
+.line-angle-relative-options:disabled {
+  opacity: 0.5;
+}
+
+#lineAngleForm .line-angle-option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #e5e5e5;
+  cursor: default;
+}
+
+#lineAngleForm .line-angle-option-row input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #365bb8;
 }
 
 .rotate-pivot-options legend {
@@ -394,10 +544,16 @@ body[data-theme="matrix"] {
 }
 
 .dialog-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-top: 6px;
+  padding-top: 8px;
+  background: #2b2c2f;
+  box-shadow: 0 -8px 12px rgba(43, 44, 47, 0.92);
 }
 
 .dialog-actions.two-actions {
@@ -563,8 +719,24 @@ body[data-theme="matrix"] {
   pointer-events: none;
 }
 
+.text-geometry {
+  fill: var(--entity-color);
+  font-family: "Atkinson Hyperlegible", sans-serif;
+  font-weight: 400;
+  pointer-events: none;
+  user-select: none;
+}
+
+.text-hit-target {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+}
+
 .join-preview,
-.line-sketch-preview {
+.line-sketch-preview,
+.line-angle-preview,
+.line-tangent-preview {
   fill: none;
   stroke: var(--entity-hover-color);
   stroke-width: 1.5;
@@ -582,6 +754,32 @@ body[data-theme="matrix"] {
   vector-effect: non-scaling-stroke;
   pointer-events: none;
   opacity: 0.9;
+}
+
+.text-placement-preview {
+  fill: var(--entity-hover-color);
+  font-family: "Atkinson Hyperlegible", sans-serif;
+  font-weight: 400;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.9;
+}
+
+.text-placement-bounds-preview {
+  fill: none;
+  stroke: var(--entity-hover-color);
+  stroke-width: 1.25;
+  stroke-dasharray: 5 3;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.text-placement-anchor-preview {
+  stroke: var(--entity-hover-color);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
 }
 
 .hexagon-preview {
@@ -620,6 +818,20 @@ body[data-theme="matrix"] {
   pointer-events: all;
 }
 
+#cadCanvas .is-inactive-layer {
+  opacity: 0.48;
+}
+
+#cadCanvas .is-inactive-layer,
+#cadCanvas .is-inactive-layer .entity-hit-target,
+#cadCanvas .is-inactive-layer .line-hit-target,
+#cadCanvas .is-inactive-layer .circle-hit-target,
+#cadCanvas .is-inactive-layer .arc-hit-target,
+#cadCanvas .is-inactive-layer .text-hit-target,
+#cadCanvas .is-inactive-layer .dimension-hit-target {
+  pointer-events: none !important;
+}
+
 #cadCanvas.select-single .point-entity {
   cursor: pointer;
 }
@@ -640,6 +852,10 @@ body[data-theme="matrix"] {
   cursor: pointer;
 }
 
+#cadCanvas.select-single .text-entity {
+  cursor: pointer;
+}
+
 #cadCanvas.select-single .line-hit-target,
 #cadCanvas.select-single .circle-hit-target,
 #cadCanvas.select-single .arc-hit-target {
@@ -650,7 +866,8 @@ body[data-theme="matrix"] {
   pointer-events: stroke;
 }
 
-#cadCanvas.select-single .point-entity.is-proximity-hovered .point-x {
+#cadCanvas.select-single .point-entity.is-proximity-hovered .point-x,
+#cadCanvas.isometric-view .point-entity.is-proximity-hovered .point-x {
   stroke: var(--entity-hover-color);
 }
 
@@ -658,7 +875,8 @@ body[data-theme="matrix"] {
   stroke: var(--entity-selected-color);
 }
 
-#cadCanvas.select-single .line-entity.is-proximity-hovered .line-geometry {
+#cadCanvas.select-single .line-entity.is-proximity-hovered .line-geometry,
+#cadCanvas.isometric-view .line-entity.is-proximity-hovered .line-geometry {
   stroke: var(--entity-hover-color);
 }
 
@@ -666,7 +884,8 @@ body[data-theme="matrix"] {
   stroke: var(--entity-selected-color);
 }
 
-#cadCanvas.select-single .circle-entity.is-proximity-hovered .circle-geometry {
+#cadCanvas.select-single .circle-entity.is-proximity-hovered .circle-geometry,
+#cadCanvas.isometric-view .circle-entity.is-proximity-hovered .circle-geometry {
   stroke: var(--entity-hover-color);
 }
 
@@ -674,7 +893,8 @@ body[data-theme="matrix"] {
   stroke: var(--entity-selected-color);
 }
 
-#cadCanvas.select-single .arc-entity.is-proximity-hovered .arc-geometry {
+#cadCanvas.select-single .arc-entity.is-proximity-hovered .arc-geometry,
+#cadCanvas.isometric-view .arc-entity.is-proximity-hovered .arc-geometry {
   stroke: var(--entity-hover-color);
 }
 
@@ -682,11 +902,22 @@ body[data-theme="matrix"] {
   stroke: var(--entity-selected-color);
 }
 
-#cadCanvas.select-single .dimension-entity.is-proximity-hovered .dimension-geometry {
+#cadCanvas.select-single .text-entity.is-proximity-hovered .text-geometry,
+#cadCanvas.isometric-view .text-entity.is-proximity-hovered .text-geometry {
+  fill: var(--entity-hover-color);
+}
+
+#cadCanvas .text-entity.is-selected .text-geometry {
+  fill: var(--entity-selected-color);
+}
+
+#cadCanvas.select-single .dimension-entity.is-proximity-hovered .dimension-geometry,
+#cadCanvas.isometric-view .dimension-entity.is-proximity-hovered .dimension-geometry {
   stroke: var(--entity-hover-color);
 }
 
-#cadCanvas.select-single .dimension-entity.is-proximity-hovered .dimension-text {
+#cadCanvas.select-single .dimension-entity.is-proximity-hovered .dimension-text,
+#cadCanvas.isometric-view .dimension-entity.is-proximity-hovered .dimension-text {
   fill: var(--entity-hover-color);
 }
 
@@ -701,6 +932,8 @@ body[data-theme="matrix"] {
 #cadCanvas.dimension-linear,
 #cadCanvas.dimension-linear .point-entity,
 #cadCanvas.dimension-linear .line-entity,
+#cadCanvas.dimension-linear .circle-entity,
+#cadCanvas.dimension-linear .arc-entity,
 #cadCanvas.dimension-diameter,
 #cadCanvas.dimension-diameter .circle-entity,
 #cadCanvas.dimension-diameter .arc-entity,
@@ -714,6 +947,8 @@ body[data-theme="matrix"] {
 
 #cadCanvas.dimension-linear .point-entity:hover .point-x,
 #cadCanvas.dimension-linear .line-entity:hover .line-geometry,
+#cadCanvas.dimension-linear .circle-entity:hover .circle-geometry,
+#cadCanvas.dimension-linear .arc-entity:hover .arc-geometry,
 #cadCanvas.dimension-diameter .circle-entity:hover .circle-geometry,
 #cadCanvas.dimension-diameter .arc-entity:hover .arc-geometry,
 #cadCanvas.dimension-radius .circle-entity:hover .circle-geometry,
@@ -723,6 +958,9 @@ body[data-theme="matrix"] {
 }
 
 #cadCanvas.dimension-linear .point-entity.is-dimension-first .point-x,
+#cadCanvas.dimension-linear .line-entity.is-dimension-first .line-geometry,
+#cadCanvas.dimension-linear .circle-entity.is-dimension-first .circle-geometry,
+#cadCanvas.dimension-linear .arc-entity.is-dimension-first .arc-geometry,
 #cadCanvas.dimension-angle .line-entity.is-dimension-first .line-geometry {
   stroke: var(--entity-selected-color);
 }
@@ -748,6 +986,47 @@ body[data-theme="matrix"] {
 }
 
 #cadCanvas.line-sketch .point-entity.is-line-sketch-start .point-x {
+  stroke: var(--entity-selected-color);
+}
+
+#cadCanvas.line-angle,
+#cadCanvas.line-angle .point-entity,
+#cadCanvas.line-angle .line-entity,
+#cadCanvas.line-angle .circle-entity,
+#cadCanvas.line-angle .arc-entity {
+  cursor: crosshair;
+}
+
+#cadCanvas.line-angle .point-entity:hover .point-x,
+#cadCanvas.line-angle .line-entity:hover .line-geometry,
+#cadCanvas.line-angle .circle-entity:hover .circle-geometry,
+#cadCanvas.line-angle .arc-entity:hover .arc-geometry {
+  stroke: var(--entity-hover-color);
+}
+
+#cadCanvas.line-angle .point-entity.is-line-angle-source .point-x,
+#cadCanvas.line-angle .line-entity.is-line-angle-source .line-geometry,
+#cadCanvas.line-angle .circle-entity.is-line-angle-source .circle-geometry,
+#cadCanvas.line-angle .arc-entity.is-line-angle-source .arc-geometry {
+  stroke: var(--entity-selected-color);
+}
+
+#cadCanvas.line-tangent,
+#cadCanvas.line-tangent .point-entity,
+#cadCanvas.line-tangent .circle-entity,
+#cadCanvas.line-tangent .arc-entity {
+  cursor: crosshair;
+}
+
+#cadCanvas.line-tangent .point-entity:hover .point-x,
+#cadCanvas.line-tangent .circle-entity:hover .circle-geometry,
+#cadCanvas.line-tangent .arc-entity:hover .arc-geometry {
+  stroke: var(--entity-hover-color);
+}
+
+#cadCanvas.line-tangent .point-entity.is-line-tangent-source .point-x,
+#cadCanvas.line-tangent .circle-entity.is-line-tangent-source .circle-geometry,
+#cadCanvas.line-tangent .arc-entity.is-line-tangent-source .arc-geometry {
   stroke: var(--entity-selected-color);
 }
 
@@ -787,15 +1066,23 @@ body[data-theme="matrix"] {
   stroke: var(--entity-selected-color);
 }
 
-#cadCanvas.hexagon-center .point-entity {
+#cadCanvas.hexagon-center .point-entity,
+#cadCanvas.rectangle-center .point-entity,
+#cadCanvas.bolt-hole-circle-center .point-entity {
   cursor: crosshair;
 }
 
-#cadCanvas.hexagon-center .point-entity:hover .point-x {
+#cadCanvas.hexagon-center .point-entity:hover .point-x,
+#cadCanvas.rectangle-center .point-entity:hover .point-x,
+#cadCanvas.bolt-hole-circle-center .point-entity:hover .point-x {
   stroke: var(--entity-hover-color);
 }
 
-#cadCanvas.hexagon-center .point-entity.is-hexagon-center .point-x {
+#cadCanvas.hexagon-center .point-entity.is-hexagon-center .point-x,
+#cadCanvas.rectangle-center .point-entity.is-rectangle-center .point-x,
+#cadCanvas.bolt-hole-circle-center
+  .point-entity.is-bolt-hole-circle-center
+  .point-x {
   stroke: var(--entity-selected-color);
 }
 
@@ -897,6 +1184,55 @@ body[data-theme="matrix"] {
   pointer-events: none;
 }
 
+#cadCanvas.point-end {
+  cursor: crosshair;
+}
+
+#cadCanvas.point-end .line-entity,
+#cadCanvas.point-end .circle-entity,
+#cadCanvas.point-end .arc-entity {
+  cursor: crosshair;
+}
+
+#cadCanvas.point-end .line-entity:hover .line-geometry,
+#cadCanvas.point-end .circle-entity:hover .circle-geometry,
+#cadCanvas.point-end .arc-entity:hover .arc-geometry {
+  stroke: var(--entity-hover-color);
+}
+
+#cadCanvas.point-end-source-pick .point-entity,
+#cadCanvas.point-end-source-pick .point-entity .entity-hit-target {
+  pointer-events: none;
+}
+
+#cadCanvas.translate-by-points {
+  cursor: crosshair;
+}
+
+#cadCanvas.translate-by-points .point-entity {
+  cursor: crosshair;
+}
+
+#cadCanvas.translate-by-points .point-entity:hover .point-x {
+  stroke: var(--entity-hover-color);
+}
+
+#cadCanvas.translate-by-points .point-entity.is-translate-first-point .point-x,
+#cadCanvas.translate-by-points .point-entity.is-translate-second-point .point-x {
+  stroke: var(--entity-selected-color);
+}
+
+#cadCanvas.translate-by-points .line-entity,
+#cadCanvas.translate-by-points .circle-entity,
+#cadCanvas.translate-by-points .arc-entity,
+#cadCanvas.translate-by-points .dimension-entity,
+#cadCanvas.translate-by-points .line-entity .line-hit-target,
+#cadCanvas.translate-by-points .circle-entity .circle-hit-target,
+#cadCanvas.translate-by-points .arc-entity .arc-hit-target,
+#cadCanvas.translate-by-points .dimension-entity .dimension-hit-target {
+  pointer-events: none;
+}
+
 #cadCanvas.fillet-entity {
   cursor: crosshair;
 }
@@ -962,11 +1298,83 @@ body[data-theme="matrix"] {
   cursor: crosshair;
 }
 
+#cadCanvas.text-placement {
+  cursor: crosshair;
+}
+
 #cadCanvas.window-zoom .entity-hit-target,
 #cadCanvas.window-zoom .line-hit-target,
 #cadCanvas.window-zoom .circle-hit-target,
-#cadCanvas.window-zoom .arc-hit-target {
+#cadCanvas.window-zoom .arc-hit-target,
+#cadCanvas.window-zoom .text-hit-target {
   pointer-events: none !important;
+}
+
+#cadCanvas.isometric-view {
+  cursor: default;
+  pointer-events: auto;
+}
+
+#cadCanvas.isometric-view.is-orbiting,
+#cadCanvas.isometric-view.is-panning,
+#cadCanvas.is-panning,
+#cadCanvas.isometric-view.is-orbiting *,
+#cadCanvas.isometric-view.is-panning *,
+#cadCanvas.is-panning * {
+  cursor: grabbing;
+}
+
+#cadCanvas.isometric-view.is-window-selecting,
+#cadCanvas.isometric-view.is-window-selecting * {
+  cursor: crosshair;
+}
+
+#cadCanvas.isometric-view:not(.is-orbiting):not(.is-panning):not(.is-window-selecting)
+  :is(
+    .point-entity,
+    .line-entity,
+    .circle-entity,
+    .arc-entity,
+    .text-entity,
+    .dimension-entity
+  ) {
+  cursor: pointer;
+}
+
+#cadCanvas.isometric-view .solid-face {
+  fill: color-mix(in srgb, var(--entity-color) 28%, transparent);
+  stroke: var(--entity-color);
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+}
+
+#cadCanvas.isometric-view .solid-face:hover,
+#cadCanvas.isometric-view .solid-face.is-hovered {
+  fill: color-mix(in srgb, var(--entity-hover-color) 38%, transparent);
+  stroke: var(--entity-hover-color);
+}
+
+#cadCanvas.isometric-view .solid-face.is-selected,
+#cadCanvas.isometric-view .solid-entity.is-selected .solid-face {
+  fill: color-mix(in srgb, var(--entity-selected-color) 42%, transparent);
+  stroke: var(--entity-selected-color);
+}
+
+#trihedronLayer {
+  pointer-events: none;
+}
+
+#trihedronLayer[hidden] {
+  display: none;
+}
+
+.trihedron-face {
+  pointer-events: none;
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  shape-rendering: geometricPrecision;
 }
 
 #gridLayer line {
@@ -979,6 +1387,35 @@ body[data-theme="matrix"] {
   box-sizing: border-box;
   background: var(--drawing-background);
   border: 0;
+  touch-action: none;
+}
+
+.cad-selection-marquee {
+  position: absolute;
+  z-index: 15;
+  box-sizing: border-box;
+  border: 1px dashed #2563eb;
+  background: rgba(37, 99, 235, 0.12);
+  pointer-events: none;
+}
+
+.cad-selection-marquee.is-crossing {
+  border-color: #16a34a;
+  background: rgba(22, 163, 74, 0.14);
+}
+
+.menu-item[hidden],
+.submenu-item[hidden],
+.dropdown-menu > button[hidden],
+fieldset[hidden],
+#translateZField[hidden],
+#modelLayer[hidden] {
+  display: none !important;
+}
+
+#translateZField {
+  display: grid;
+  gap: 8px;
 }
 
 .cad-scrollbar {
@@ -1183,7 +1620,15 @@ body {
   align-items: center;
   gap: 4px;
   flex: 0 0 auto;
-  margin-left: auto;
+  margin-left: 0;
+}
+
+.isometric-toolbar-slot {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
 }
 
 .menu-toolbar-button {
@@ -1238,6 +1683,24 @@ body {
   user-select: none;
 }
 
+.isometric-toolbar-button {
+  color: #000000;
+  font-family: "Atkinson Hyperlegible", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.isometric-toolbar-button.is-active,
+.isometric-toolbar-button.is-active:hover,
+.isometric-toolbar-button.is-active:focus-visible {
+  color: #ffffff;
+  background: #000000;
+  border-color: #ffffff;
+  box-shadow: inset 0 1px 3px rgba(255, 255, 255, 0.24);
+}
+
 .dropdown-menu {
   position: absolute;
   top: 100%;
@@ -1252,6 +1715,7 @@ body {
 }
 
 .menu-item:hover > .dropdown-menu,
+.menu-item.is-hover-retained > .dropdown-menu,
 .menu-item:focus-within > .dropdown-menu {
   display: flex;
 }
@@ -1290,11 +1754,13 @@ body {
 }
 
 .submenu-item:hover > .submenu-menu,
+.submenu-item.is-hover-retained > .submenu-menu,
 .submenu-item:focus-within > .submenu-menu {
   display: flex;
 }
 
 .submenu-item:hover > .submenu-trigger,
+.submenu-item.is-hover-retained > .submenu-trigger,
 .submenu-item:focus-within > .submenu-trigger {
   background: #d8d8d8;
   outline: none;
@@ -1324,6 +1790,49 @@ body {
 
 .dropdown-menu button:disabled:hover {
   background: transparent;
+}
+
+.layer-dropdown-menu {
+  min-width: 240px;
+}
+
+.layer-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.layer-menu-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+}
+
+.dropdown-menu .layer-select-button {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layer-actions {
+  width: 34px;
+}
+
+.dropdown-menu .layer-more-button {
+  justify-content: center;
+  width: 34px;
+  height: 100%;
+  padding: 4px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.layer-action-menu {
+  min-width: 120px;
+}
+
+#newLayerMenu {
+  border-top: 1px solid #c6c6c6;
 }
 
 .menu-checkbox-option {

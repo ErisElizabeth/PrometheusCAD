@@ -8,8 +8,8 @@
       name="description"
       content="PrometheusCAD is a portable 2D CAD and shop-math utility for machinists."
     />
-    <meta name="version" content="0.1.21" />
-    <title>PrometheusCAD V0.1.21</title>
+    <meta name="version" content="0.1.49" />
+    <title>PrometheusCAD V0.1.49</title>
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="Calculator/Calculator.css" />
   </head>
@@ -17,7 +17,7 @@
   <body data-theme="granite">
     <header class="app-header">
       <div class="brand-block">
-        <h1>PrometheusCAD <span class="app-version">V0.1.21</span></h1>
+        <h1>PrometheusCAD <span class="app-version">V0.1.49</span></h1>
         <p>You draw. It solves.</p>
       </div>
     </header>
@@ -57,6 +57,17 @@
           <button type="button" id="windowZoomMenu">Window</button>
           <button type="button" id="homeViewMenu">Home</button>
           <button type="button" id="fitViewMenu">Fit</button>
+          <button
+            type="button"
+            id="showTrihedronMenu"
+            class="theme-option current-menu-option"
+            aria-pressed="true"
+            title="Available in the 3D workspace"
+            disabled
+          >
+            <span>Show Trihedron</span>
+            <span class="menu-check" aria-hidden="true">&#10003;</span>
+          </button>
         </div>
       </div>
 
@@ -108,7 +119,23 @@
           <button type="button" id="selectAllMenu">All</button>
           <button type="button" id="singleSelectMenu">Single</button>
           <button type="button" id="selectChainMenu">Chain</button>
-          <button type="button" id="selectLayerMenu" disabled>Layer</button>
+          <div id="selectLayerSubmenu" class="submenu-item">
+            <button
+              type="button"
+              id="selectLayerMenu"
+              class="submenu-trigger"
+              aria-haspopup="true"
+              aria-label="Select entities by layer"
+            >
+              <span>Layer</span>
+              <span class="submenu-arrow" aria-hidden="true">&#9656;</span>
+            </button>
+            <div
+              id="selectLayerList"
+              class="submenu-menu"
+              aria-label="Layers available for selection"
+            ></div>
+          </div>
           <button type="button" id="selectPointsMenu">Points</button>
           <button type="button" id="selectLinesMenu">Lines</button>
           <button type="button" id="selectArcsMenu">Arcs</button>
@@ -119,7 +146,7 @@
         </div>
       </div>
 
-      <div class="menu-item">
+      <div id="drawMenuItem" class="menu-item">
         <button type="button" class="menu-button">Draw</button>
         <div class="dropdown-menu">
           <div class="submenu-item">
@@ -137,6 +164,10 @@
               <button type="button" id="pointIntersectMenu">Intersecting</button>
               <button type="button" id="pointOnEntityMenu">On Entity</button>
               <button type="button" id="pointSketchMenu">Sketch</button>
+              <button type="button" id="pointEndMenu">End</button>
+              <button type="button" id="pointIncrementalMenu">
+                Incremental
+              </button>
             </div>
           </div>
           <div class="submenu-item">
@@ -153,6 +184,8 @@
               <button type="button" id="lineCoordinatesMenu">Coordinates</button>
               <button type="button" id="lineJoinMenu">Join</button>
               <button type="button" id="lineSketchMenu">Sketch</button>
+              <button type="button" id="lineAngleMenu">Angle</button>
+              <button type="button" id="lineTangentMenu">Tangent</button>
             </div>
           </div>
           <div class="submenu-item">
@@ -181,11 +214,130 @@
               </button>
             </div>
           </div>
-          <button type="button" id="hexagonMenu">Hexagon</button>
-          <button type="button" id="rectangleMenu">Rectangle</button>
-          <button type="button" id="boltHoleCircleMenu">
-            Bolt Hole Circle
+          <div class="submenu-item">
+            <button
+              type="button"
+              class="submenu-trigger"
+              aria-haspopup="true"
+              aria-label="Hexagon submenu"
+            >
+              <span>Hexagon</span>
+              <span class="submenu-arrow" aria-hidden="true">&#9656;</span>
+            </button>
+            <div class="submenu-menu" aria-label="Hexagon drawing commands">
+              <button type="button" id="hexagonPointCenterMenu">
+                Point Center
+              </button>
+              <button type="button" id="hexagonDefineCenterMenu">
+                Define Center
+              </button>
+            </div>
+          </div>
+          <div class="submenu-item">
+            <button
+              type="button"
+              class="submenu-trigger"
+              aria-haspopup="true"
+              aria-label="Rectangle submenu"
+            >
+              <span>Rectangle</span>
+              <span class="submenu-arrow" aria-hidden="true">&#9656;</span>
+            </button>
+            <div class="submenu-menu" aria-label="Rectangle drawing commands">
+              <button type="button" id="rectanglePointCenterMenu">
+                Point Center
+              </button>
+              <button type="button" id="rectangleDefineCenterMenu">
+                Define Center
+              </button>
+            </div>
+          </div>
+          <div class="submenu-item">
+            <button
+              type="button"
+              class="submenu-trigger"
+              aria-haspopup="true"
+              aria-label="Bolt Hole Circle submenu"
+            >
+              <span>Bolt Hole Circle</span>
+              <span class="submenu-arrow" aria-hidden="true">&#9656;</span>
+            </button>
+            <div
+              class="submenu-menu"
+              aria-label="Bolt Hole Circle drawing commands"
+            >
+              <button type="button" id="boltHoleCirclePointCenterMenu">
+                Point Center
+              </button>
+              <button type="button" id="boltHoleCircleDefineCenterMenu">
+                Define Center
+              </button>
+            </div>
+          </div>
+          <button type="button" id="textMenu">Text</button>
+        </div>
+      </div>
+
+      <div id="modelMenuItem" class="menu-item" hidden>
+        <button
+          type="button"
+          id="modelMenuButton"
+          class="menu-button"
+          aria-label="3D modeling commands"
+        >
+          Model
+        </button>
+        <div class="dropdown-menu">
+          <div class="submenu-item">
+            <button
+              type="button"
+              class="submenu-trigger"
+              aria-haspopup="true"
+              aria-label="3D primitives submenu"
+            >
+              <span>Primitives</span>
+              <span class="submenu-arrow" aria-hidden="true">&#9656;</span>
+            </button>
+            <div class="submenu-menu" aria-label="3D primitive commands">
+              <button type="button" id="modelBoxMenu">Box</button>
+              <button type="button" id="modelCylinderMenu" disabled>
+                Cylinder
+              </button>
+              <button type="button" id="modelSphereMenu" disabled>
+                Sphere
+              </button>
+              <button type="button" id="modelConeMenu" disabled>Cone</button>
+            </div>
+          </div>
+          <button type="button" id="modelExtrudeMenu" disabled>
+            Extrude Profile
           </button>
+          <button type="button" id="modelSweepMenu" disabled>
+            Sweep Profile
+          </button>
+          <button type="button" id="modelRevolveMenu" disabled>
+            Revolve Profile
+          </button>
+          <div class="submenu-item">
+            <button
+              type="button"
+              class="submenu-trigger"
+              aria-haspopup="true"
+              aria-label="3D Boolean submenu"
+            >
+              <span>Boolean</span>
+              <span class="submenu-arrow" aria-hidden="true">&#9656;</span>
+            </button>
+            <div class="submenu-menu" aria-label="3D Boolean commands">
+              <button type="button" id="modelUnionMenu" disabled>Union</button>
+              <button type="button" id="modelSubtractMenu" disabled>
+                Subtract
+              </button>
+              <button type="button" id="modelIntersectMenu" disabled>
+                Intersect
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -203,14 +355,18 @@
               aria-haspopup="true"
               aria-label="Mirror submenu"
             >
-              <span>Mirror</span>
+              <span id="mirrorMenuLabel">Mirror</span>
               <span class="submenu-arrow" aria-hidden="true">&#9656;</span>
             </button>
             <div class="submenu-menu" aria-label="Mirror commands">
-              <button type="button" id="mirrorXAxisMenu">X Axis</button>
-              <button type="button" id="mirrorYAxisMenu">Y Axis</button>
+              <button type="button" id="mirrorXAxisMenu">
+                <span id="mirrorXAxisLabel">X Axis</span>
+              </button>
+              <button type="button" id="mirrorYAxisMenu">
+                <span id="mirrorYAxisLabel">Y Axis</span>
+              </button>
               <button type="button" id="mirrorBothAxesMenu">
-                X and Y Axis
+                <span id="mirrorBothAxesLabel">X and Y Axis</span>
               </button>
               <label class="menu-checkbox-option" for="mirrorCopyInput">
                 <input type="checkbox" id="mirrorCopyInput" />
@@ -218,7 +374,26 @@
               </label>
             </div>
           </div>
-          <button type="button" id="translateMenu" disabled>Translate</button>
+          <div class="submenu-item">
+            <button
+              type="button"
+              id="translateSubmenuMenu"
+              class="submenu-trigger"
+              aria-haspopup="true"
+              aria-label="Translate submenu"
+            >
+              <span>Translate</span>
+              <span class="submenu-arrow" aria-hidden="true">&#9656;</span>
+            </button>
+            <div class="submenu-menu" aria-label="Translate commands">
+              <button type="button" id="translateCoordinatesMenu">
+                By Coordinates
+              </button>
+              <button type="button" id="translateByPointsMenu">
+                By Points
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -229,27 +404,40 @@
           <button type="button" id="diameterDimensionMenu">Diameter</button>
           <button type="button" id="radiusDimensionMenu">Radius</button>
           <button type="button" id="angleDimensionMenu">Angle</button>
+          <button type="button" id="modelDimensionPlaceholder" hidden disabled>
+            3D Dimensions Planned
+          </button>
         </div>
       </div>
 
       <div class="menu-item">
         <button type="button" class="menu-button">Layer</button>
+        <div id="layerDropdownMenu" class="dropdown-menu layer-dropdown-menu">
+          <div id="layerList" class="layer-list" aria-label="Drawing layers"></div>
+          <button type="button" id="newLayerMenu">New</button>
+        </div>
+      </div>
+
+      <div class="menu-item">
+        <button type="button" class="menu-button">Units</button>
         <div class="dropdown-menu">
           <button
             type="button"
-            id="layerCurrentMenu"
-            class="current-menu-option"
-            aria-current="true"
+            id="inchUnitsMenu"
+            class="theme-option unit-option current-menu-option"
+            aria-pressed="true"
           >
-            Layer: 0
+            <span>Inch</span>
+            <span class="menu-check" aria-hidden="true">&#10003;</span>
           </button>
           <button
             type="button"
-            id="newLayerMenu"
-            title="Layer creation is not available yet"
-            disabled
+            id="metricUnitsMenu"
+            class="theme-option unit-option"
+            aria-pressed="false"
           >
-            New
+            <span>Metric</span>
+            <span class="menu-check" aria-hidden="true">&#10003;</span>
           </button>
         </div>
       </div>
@@ -259,6 +447,19 @@
         <div class="dropdown-menu">
           <button type="button" id="aboutMenu">About</button>
         </div>
+      </div>
+
+      <div class="isometric-toolbar-slot">
+        <button
+          type="button"
+          id="quickIsometricButton"
+          class="menu-toolbar-button isometric-toolbar-button"
+          aria-label="Enter 3D workspace"
+          aria-pressed="false"
+          title="3D Workspace"
+        >
+          <span aria-hidden="true">3D</span>
+        </button>
       </div>
 
       <div class="menu-toolbar" role="toolbar" aria-label="Quick tools">
@@ -551,6 +752,209 @@
     </section>
 
     <section
+      id="lineAngleWindow"
+      class="tool-window"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="lineAngleTitle"
+      hidden
+    >
+      <div id="lineAngleWindowTitleBar" class="window-title-bar">
+        <h2 id="lineAngleTitle">Line - Angle</h2>
+        <div class="window-controls">
+          <button
+            type="button"
+            id="lineAngleMinimizeButton"
+            class="window-control"
+            aria-label="Minimize Line Angle"
+            title="Minimize"
+          >
+            <span aria-hidden="true">&minus;</span>
+          </button>
+          <button
+            type="button"
+            id="lineAngleMaximizeButton"
+            class="window-control"
+            aria-label="Maximize Line Angle"
+            title="Maximize"
+          >
+            <span id="lineAngleMaximizeIcon" aria-hidden="true">&#9633;</span>
+          </button>
+          <button
+            type="button"
+            id="lineAngleCloseButton"
+            class="window-control window-close"
+            aria-label="Close Line Angle"
+            title="Close"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="tool-window-body">
+        <form id="lineAngleForm" autocomplete="off">
+          <div class="line-angle-source-readout">
+            <span>Start source</span>
+            <strong id="lineAngleSourceReadout">Select an entity</strong>
+          </div>
+
+          <label for="lineAngleDegrees">Angle</label>
+          <div class="coordinate-input">
+            <span aria-hidden="true">&deg;</span>
+            <input
+              id="lineAngleDegrees"
+              name="angle"
+              type="text"
+              inputmode="decimal"
+              value="0"
+              spellcheck="false"
+              required
+            />
+          </div>
+
+          <label for="lineAngleLength">Length</label>
+          <div class="coordinate-input">
+            <span aria-hidden="true">L</span>
+            <input
+              id="lineAngleLength"
+              name="length"
+              type="text"
+              inputmode="decimal"
+              value="1.000"
+              spellcheck="false"
+              required
+            />
+          </div>
+
+          <fieldset id="lineAngleRelativeOptions" class="line-angle-relative-options" disabled>
+            <legend>Relative to</legend>
+            <label class="line-angle-option-row" for="lineAngleRelativeLine">
+              <input
+                id="lineAngleRelativeLine"
+                name="lineAngleRelative"
+                type="radio"
+                value="line"
+              />
+              <span>Line</span>
+            </label>
+            <label class="line-angle-option-row" for="lineAngleRelativeAxis">
+              <input
+                id="lineAngleRelativeAxis"
+                name="lineAngleRelative"
+                type="radio"
+                value="axis"
+                checked
+              />
+              <span>Axis</span>
+            </label>
+          </fieldset>
+
+          <p id="lineAngleToolMessage" class="tool-message" role="status" aria-live="polite">
+            Select a point, line, circle, or arc for the line start.
+          </p>
+
+          <div class="dialog-actions two-actions">
+            <button type="submit" id="lineAngleCreateButton" class="primary-action" disabled>
+              Create
+            </button>
+            <button type="button" id="lineAngleCancelButton">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section
+      id="lineTangentWindow"
+      class="tool-window"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="lineTangentTitle"
+      hidden
+    >
+      <div id="lineTangentWindowTitleBar" class="window-title-bar">
+        <h2 id="lineTangentTitle">Line - Tangent</h2>
+        <div class="window-controls">
+          <button
+            type="button"
+            id="lineTangentMinimizeButton"
+            class="window-control"
+            aria-label="Minimize Line Tangent"
+            title="Minimize"
+          >
+            <span aria-hidden="true">&minus;</span>
+          </button>
+          <button
+            type="button"
+            id="lineTangentMaximizeButton"
+            class="window-control"
+            aria-label="Maximize Line Tangent"
+            title="Maximize"
+          >
+            <span id="lineTangentMaximizeIcon" aria-hidden="true">&#9633;</span>
+          </button>
+          <button
+            type="button"
+            id="lineTangentCloseButton"
+            class="window-control window-close"
+            aria-label="Close Line Tangent"
+            title="Close"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="tool-window-body">
+        <form id="lineTangentForm" autocomplete="off">
+          <div class="line-tangent-source-readout">
+            <span>Tangent source</span>
+            <strong id="lineTangentSourceReadout">Select an entity</strong>
+          </div>
+
+          <label for="lineTangentAngle">Angle</label>
+          <div class="coordinate-input">
+            <span aria-hidden="true">&deg;</span>
+            <input
+              id="lineTangentAngle"
+              name="angle"
+              type="text"
+              inputmode="decimal"
+              value="0"
+              spellcheck="false"
+              required
+            />
+          </div>
+
+          <label for="lineTangentLength">Length</label>
+          <div class="coordinate-input">
+            <span aria-hidden="true">L</span>
+            <input
+              id="lineTangentLength"
+              name="length"
+              type="text"
+              inputmode="decimal"
+              value="1.000"
+              spellcheck="false"
+              required
+            />
+          </div>
+
+          <p id="lineTangentToolMessage" class="tool-message" role="status" aria-live="polite">
+            Select a point, circle, or arc as the tangent source.
+          </p>
+
+          <div class="dialog-actions two-actions">
+            <button type="submit" id="lineTangentCreateButton" class="primary-action" disabled>
+              Create
+            </button>
+            <button type="button" id="lineTangentCancelButton">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section
       id="circleRadiusWindow"
       class="tool-window"
       role="dialog"
@@ -707,10 +1111,47 @@
 
       <div class="tool-window-body">
         <form id="hexagonForm" autocomplete="off">
-          <div class="hexagon-center-readout">
+          <div id="hexagonCenterReadoutGroup" class="hexagon-center-readout">
             <span>Center point</span>
             <strong id="hexagonCenterReadout">None selected</strong>
           </div>
+
+          <fieldset
+            id="hexagonCoordinateCenterFields"
+            class="coordinate-pair-group"
+            disabled
+            hidden
+          >
+            <legend>Center location</legend>
+
+            <label for="hexagonCenterX">X coordinate</label>
+            <div class="coordinate-input">
+              <span aria-hidden="true">X</span>
+              <input
+                id="hexagonCenterX"
+                name="centerX"
+                type="text"
+                inputmode="decimal"
+                value="0"
+                spellcheck="false"
+                required
+              />
+            </div>
+
+            <label for="hexagonCenterY">Y coordinate</label>
+            <div class="coordinate-input">
+              <span aria-hidden="true">Y</span>
+              <input
+                id="hexagonCenterY"
+                name="centerY"
+                type="text"
+                inputmode="decimal"
+                value="0"
+                spellcheck="false"
+                required
+              />
+            </div>
+          </fieldset>
 
           <label for="hexagonAcrossFlats">Size across flats</label>
           <div class="coordinate-input">
@@ -797,7 +1238,16 @@
 
       <div class="tool-window-body">
         <form id="rectangleForm" autocomplete="off">
-          <fieldset class="coordinate-pair-group">
+          <div
+            id="rectangleCenterReadoutGroup"
+            class="rectangle-center-readout"
+            hidden
+          >
+            <span>Center point</span>
+            <strong id="rectangleCenterReadout">None selected</strong>
+          </div>
+
+          <fieldset id="rectangleCoordinateCenterFields" class="coordinate-pair-group">
             <legend>Center location</legend>
 
             <label for="rectangleCenterX">X coordinate</label>
@@ -933,6 +1383,50 @@
 
       <div class="tool-window-body">
         <form id="boltHoleCircleForm" autocomplete="off">
+          <div
+            id="boltHoleCircleCenterReadoutGroup"
+            class="bolt-hole-circle-center-readout"
+            hidden
+          >
+            <span>Center point</span>
+            <strong id="boltHoleCircleCenterReadout">None selected</strong>
+          </div>
+
+          <fieldset
+            id="boltHoleCircleCoordinateCenterFields"
+            class="coordinate-pair-group"
+          >
+            <legend>Center location</legend>
+
+            <label for="boltHoleCircleCenterX">X coordinate</label>
+            <div class="coordinate-input">
+              <span aria-hidden="true">X</span>
+              <input
+                id="boltHoleCircleCenterX"
+                name="centerX"
+                type="text"
+                inputmode="decimal"
+                value="0"
+                spellcheck="false"
+                required
+              />
+            </div>
+
+            <label for="boltHoleCircleCenterY">Y coordinate</label>
+            <div class="coordinate-input">
+              <span aria-hidden="true">Y</span>
+              <input
+                id="boltHoleCircleCenterY"
+                name="centerY"
+                type="text"
+                inputmode="decimal"
+                value="0"
+                spellcheck="false"
+                required
+              />
+            </div>
+          </fieldset>
+
           <label for="boltHoleDiameter">Bolt Hole Diameter</label>
           <div class="coordinate-input">
             <span aria-hidden="true">&#8960;</span>
@@ -981,7 +1475,7 @@
             role="status"
             aria-live="polite"
           >
-            Center X0 Y0; the first hole is at 0&deg;.
+            Enter or select a center; the first hole is at 0&deg;.
           </p>
 
           <div class="dialog-actions two-actions">
@@ -989,6 +1483,87 @@
               Create
             </button>
             <button type="button" id="boltHoleCircleCancelButton">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section
+      id="textWindow"
+      class="tool-window"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="textTitle"
+      hidden
+    >
+      <div id="textWindowTitleBar" class="window-title-bar">
+        <h2 id="textTitle">Text</h2>
+        <div class="window-controls">
+          <button
+            type="button"
+            id="textMinimizeButton"
+            class="window-control"
+            aria-label="Minimize Text"
+            title="Minimize"
+          >
+            <span aria-hidden="true">&minus;</span>
+          </button>
+          <button
+            type="button"
+            id="textMaximizeButton"
+            class="window-control"
+            aria-label="Maximize Text"
+            title="Maximize"
+          >
+            <span id="textMaximizeIcon" aria-hidden="true">&#9633;</span>
+          </button>
+          <button
+            type="button"
+            id="textCloseButton"
+            class="window-control window-close"
+            aria-label="Close Text"
+            title="Close"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="tool-window-body">
+        <form id="textForm" autocomplete="off">
+          <label for="textHeight">Text Height</label>
+          <div class="coordinate-input">
+            <span aria-hidden="true">H</span>
+            <input
+              id="textHeight"
+              name="height"
+              type="text"
+              inputmode="decimal"
+              value="0.250"
+              spellcheck="false"
+              required
+            />
+          </div>
+
+          <label for="textContent">Text</label>
+          <div class="coordinate-input">
+            <span aria-hidden="true">T</span>
+            <input
+              id="textContent"
+              name="content"
+              type="text"
+              value="Type text here..."
+              spellcheck="true"
+              required
+            />
+          </div>
+
+          <p id="textToolMessage" class="tool-message" role="status" aria-live="polite">
+            Move the pointer over the drawing, then click to place the text.
+          </p>
+
+          <div class="dialog-actions one-action">
+            <button type="button" id="textCancelButton">Cancel</button>
           </div>
         </form>
       </div>
@@ -1316,6 +1891,38 @@
             </label>
           </fieldset>
 
+          <fieldset id="rotateAxisOptions" class="rotate-pivot-options" hidden>
+            <legend>Rotate around origin axis</legend>
+            <label class="rotate-option-row" for="rotateAxisX">
+              <input
+                id="rotateAxisX"
+                name="rotateAxis"
+                type="radio"
+                value="x"
+                checked
+              />
+              <span>X Axis</span>
+            </label>
+            <label class="rotate-option-row" for="rotateAxisY">
+              <input
+                id="rotateAxisY"
+                name="rotateAxis"
+                type="radio"
+                value="y"
+              />
+              <span>Y Axis</span>
+            </label>
+            <label class="rotate-option-row" for="rotateAxisZ">
+              <input
+                id="rotateAxisZ"
+                name="rotateAxis"
+                type="radio"
+                value="z"
+              />
+              <span>Z Axis</span>
+            </label>
+          </fieldset>
+
           <div class="rotate-pivot-readout">
             <span>Pivot</span>
             <strong id="rotatePivotReadout">X0 Y0</strong>
@@ -1333,6 +1940,476 @@
               Rotate
             </button>
             <button type="button" id="rotateCancelButton">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section
+      id="pointIncrementalWindow"
+      class="tool-window"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="pointIncrementalTitle"
+      hidden
+    >
+      <div id="pointIncrementalWindowTitleBar" class="window-title-bar">
+        <h2 id="pointIncrementalTitle">Point - Incremental</h2>
+        <div class="window-controls">
+          <button
+            type="button"
+            id="pointIncrementalMinimizeButton"
+            class="window-control"
+            aria-label="Minimize Point Incremental"
+            title="Minimize"
+          >
+            <span aria-hidden="true">&minus;</span>
+          </button>
+          <button
+            type="button"
+            id="pointIncrementalMaximizeButton"
+            class="window-control"
+            aria-label="Maximize Point Incremental"
+            title="Maximize"
+          >
+            <span id="pointIncrementalMaximizeIcon" aria-hidden="true">&#9633;</span>
+          </button>
+          <button
+            type="button"
+            id="pointIncrementalCloseButton"
+            class="window-control window-close"
+            aria-label="Close Point Incremental"
+            title="Close"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="tool-window-body">
+        <form id="pointIncrementalForm" autocomplete="off">
+          <div class="point-incremental-selection-readout">
+            <span>Selected point</span>
+            <strong id="pointIncrementalSelectionReadout">None selected</strong>
+          </div>
+
+          <label for="pointIncrementalX">X increment</label>
+          <div class="coordinate-input">
+            <span aria-hidden="true">X</span>
+            <input
+              id="pointIncrementalX"
+              name="pointIncrementalX"
+              type="text"
+              inputmode="decimal"
+              value="0"
+              spellcheck="false"
+              required
+            />
+          </div>
+
+          <label for="pointIncrementalY">Y increment</label>
+          <div class="coordinate-input">
+            <span aria-hidden="true">Y</span>
+            <input
+              id="pointIncrementalY"
+              name="pointIncrementalY"
+              type="text"
+              inputmode="decimal"
+              value="0"
+              spellcheck="false"
+              required
+            />
+          </div>
+
+          <label class="checkbox-row" for="pointIncrementalCopyInput">
+            <input id="pointIncrementalCopyInput" type="checkbox" />
+            <span>Copy</span>
+          </label>
+
+          <p
+            id="pointIncrementalToolMessage"
+            class="tool-message"
+            role="status"
+            aria-live="polite"
+          >
+            Enter the X and Y increments.
+          </p>
+
+          <div class="dialog-actions two-actions">
+            <button
+              type="submit"
+              id="pointIncrementalApplyButton"
+              class="primary-action"
+            >
+              Translate
+            </button>
+            <button type="button" id="pointIncrementalCancelButton">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section
+      id="translateWindow"
+      class="tool-window"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="translateTitle"
+      hidden
+    >
+      <div id="translateWindowTitleBar" class="window-title-bar">
+        <h2 id="translateTitle">Translate</h2>
+        <div class="window-controls">
+          <button
+            type="button"
+            id="translateMinimizeButton"
+            class="window-control"
+            aria-label="Minimize Translate"
+            title="Minimize"
+          >
+            <span aria-hidden="true">&minus;</span>
+          </button>
+          <button
+            type="button"
+            id="translateMaximizeButton"
+            class="window-control"
+            aria-label="Maximize Translate"
+            title="Maximize"
+          >
+            <span id="translateMaximizeIcon" aria-hidden="true">&#9633;</span>
+          </button>
+          <button
+            type="button"
+            id="translateCloseButton"
+            class="window-control window-close"
+            aria-label="Close Translate"
+            title="Close"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="tool-window-body">
+        <form id="translateForm" autocomplete="off">
+          <div class="translate-selection-readout">
+            <span>Selected entities</span>
+            <strong id="translateSelectionReadout">None selected</strong>
+          </div>
+
+          <label for="translateX">X distance</label>
+          <div class="coordinate-input">
+            <span aria-hidden="true">X</span>
+            <input
+              id="translateX"
+              name="translateX"
+              type="text"
+              inputmode="decimal"
+              value="0"
+              spellcheck="false"
+              required
+            />
+          </div>
+
+          <label for="translateY">Y distance</label>
+          <div class="coordinate-input">
+            <span aria-hidden="true">Y</span>
+            <input
+              id="translateY"
+              name="translateY"
+              type="text"
+              inputmode="decimal"
+              value="0"
+              spellcheck="false"
+              required
+            />
+          </div>
+
+          <div id="translateZField" hidden>
+            <label for="translateZ">Z distance</label>
+            <div class="coordinate-input">
+              <span aria-hidden="true">Z</span>
+              <input
+                id="translateZ"
+                name="translateZ"
+                type="text"
+                inputmode="decimal"
+                value="0"
+                spellcheck="false"
+                required
+              />
+            </div>
+          </div>
+
+          <label class="checkbox-row" for="translateCopyInput">
+            <input id="translateCopyInput" type="checkbox" />
+            <span>Copy</span>
+          </label>
+
+          <p id="translateToolMessage" class="tool-message" role="status" aria-live="polite">
+            Enter the X and Y translation distances.
+          </p>
+
+          <div class="dialog-actions two-actions">
+            <button type="submit" id="translateApplyButton" class="primary-action">
+              Translate
+            </button>
+            <button type="button" id="translateCancelButton">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section
+      id="translateByPointsWindow"
+      class="tool-window"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="translateByPointsTitle"
+      hidden
+    >
+      <div id="translateByPointsWindowTitleBar" class="window-title-bar">
+        <h2 id="translateByPointsTitle">Translate - By Points</h2>
+        <div class="window-controls">
+          <button
+            type="button"
+            id="translateByPointsMinimizeButton"
+            class="window-control"
+            aria-label="Minimize Translate By Points"
+            title="Minimize"
+          >
+            <span aria-hidden="true">&minus;</span>
+          </button>
+          <button
+            type="button"
+            id="translateByPointsMaximizeButton"
+            class="window-control"
+            aria-label="Maximize Translate By Points"
+            title="Maximize"
+          >
+            <span id="translateByPointsMaximizeIcon" aria-hidden="true">&#9633;</span>
+          </button>
+          <button
+            type="button"
+            id="translateByPointsCloseButton"
+            class="window-control window-close"
+            aria-label="Close Translate By Points"
+            title="Close"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="tool-window-body">
+        <form id="translateByPointsForm" autocomplete="off">
+          <div class="translate-by-points-readout">
+            <span>Selected entities</span>
+            <strong id="translateByPointsSelectionReadout">None selected</strong>
+            <span>First point</span>
+            <strong id="translateByPointsFirstReadout">Click a point</strong>
+            <span>Second point</span>
+            <strong id="translateByPointsSecondReadout">Not selected</strong>
+            <span>Translation vector</span>
+            <strong id="translateByPointsVectorReadout">X— Y—</strong>
+          </div>
+
+          <label class="checkbox-row" for="translateByPointsCopyInput">
+            <input id="translateByPointsCopyInput" type="checkbox" />
+            <span>Copy</span>
+          </label>
+
+          <p
+            id="translateByPointsToolMessage"
+            class="tool-message"
+            role="status"
+            aria-live="polite"
+          >
+            Click the first reference point on the drawing.
+          </p>
+
+          <div class="dialog-actions two-actions">
+            <button
+              type="submit"
+              id="translateByPointsApplyButton"
+              class="primary-action"
+              disabled
+            >
+              Translate
+            </button>
+            <button type="button" id="translateByPointsCancelButton">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section
+      id="boxWindow"
+      class="tool-window box-window"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="boxTitle"
+      hidden
+    >
+      <div id="boxWindowTitleBar" class="window-title-bar">
+        <h2 id="boxTitle">Box</h2>
+        <div class="window-controls">
+          <button
+            type="button"
+            id="boxMinimizeButton"
+            class="window-control"
+            aria-label="Minimize Box"
+            title="Minimize"
+          >
+            <span aria-hidden="true">&minus;</span>
+          </button>
+          <button
+            type="button"
+            id="boxMaximizeButton"
+            class="window-control"
+            aria-label="Maximize Box"
+            title="Maximize"
+          >
+            <span id="boxMaximizeIcon" aria-hidden="true">&#9633;</span>
+          </button>
+          <button
+            type="button"
+            id="boxCloseButton"
+            class="window-control window-close"
+            aria-label="Close Box"
+            title="Close"
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="tool-window-body">
+        <form id="boxForm" autocomplete="off">
+          <div class="box-primary-grid">
+            <fieldset class="model-parameter-group">
+              <legend>Position</legend>
+
+            <label for="boxX">X center of bottom face</label>
+            <div class="coordinate-input">
+              <span aria-hidden="true">X</span>
+              <input
+                id="boxX"
+                name="boxX"
+                type="text"
+                inputmode="decimal"
+                value="0"
+                spellcheck="false"
+                required
+              />
+            </div>
+
+            <label for="boxY">Y center of bottom face</label>
+            <div class="coordinate-input">
+              <span aria-hidden="true">Y</span>
+              <input
+                id="boxY"
+                name="boxY"
+                type="text"
+                inputmode="decimal"
+                value="0"
+                spellcheck="false"
+                required
+              />
+            </div>
+
+            <label for="boxZ">Z elevation of bottom face</label>
+            <div class="coordinate-input">
+              <span aria-hidden="true">Z</span>
+              <input
+                id="boxZ"
+                name="boxZ"
+                type="text"
+                inputmode="decimal"
+                value="0"
+                spellcheck="false"
+                required
+              />
+            </div>
+            </fieldset>
+
+            <fieldset class="model-parameter-group">
+              <legend>Dimensions</legend>
+
+            <label for="boxLength">Length along X</label>
+            <div class="coordinate-input">
+              <span aria-hidden="true">L</span>
+              <input
+                id="boxLength"
+                name="boxLength"
+                type="text"
+                inputmode="decimal"
+                value="2.000"
+                spellcheck="false"
+                required
+              />
+            </div>
+
+            <label for="boxWidth">Width along Y</label>
+            <div class="coordinate-input">
+              <span aria-hidden="true">W</span>
+              <input
+                id="boxWidth"
+                name="boxWidth"
+                type="text"
+                inputmode="decimal"
+                value="1.000"
+                spellcheck="false"
+                required
+              />
+            </div>
+
+            <label for="boxHeight">Height along positive Z</label>
+            <div class="coordinate-input">
+              <span aria-hidden="true">H</span>
+              <input
+                id="boxHeight"
+                name="boxHeight"
+                type="text"
+                inputmode="decimal"
+                value="1.000"
+                spellcheck="false"
+                required
+              />
+            </div>
+            </fieldset>
+          </div>
+
+          <fieldset class="model-parameter-group">
+            <legend>Draft</legend>
+            <label for="boxDraftAngle">Draft angle in degrees</label>
+            <div class="coordinate-input">
+              <span aria-hidden="true">&deg;</span>
+              <input
+                id="boxDraftAngle"
+                name="boxDraftAngle"
+                type="text"
+                inputmode="decimal"
+                value="0"
+                spellcheck="false"
+                required
+              />
+            </div>
+          </fieldset>
+
+          <p id="boxToolMessage" class="tool-message" role="status" aria-live="polite">
+            Position is the center and elevation of the bottom face.
+          </p>
+
+          <div class="dialog-actions two-actions">
+            <button type="submit" id="boxCreateButton" class="primary-action">
+              Create
+            </button>
+            <button type="button" id="boxCancelButton">Cancel</button>
           </div>
         </form>
       </div>
@@ -1363,7 +2440,7 @@
 
       <div class="tool-window-body">
         <div class="about-content">
-          <p id="aboutVersion">PrometheusCAD V0.1.21</p>
+          <p id="aboutVersion">PrometheusCAD V0.1.49</p>
           <p>
             2026
             <a
@@ -1385,7 +2462,20 @@
             <g id="entityLayer"></g>
             <g id="previewLayer"></g>
           </g>
+          <g id="modelLayer" transform="scale(1 -1)"></g>
+          <g
+            id="trihedronLayer"
+            transform="scale(1 -1)"
+            aria-hidden="true"
+            hidden
+          ></g>
         </svg>
+        <div
+          id="cadSelectionMarquee"
+          class="cad-selection-marquee"
+          aria-hidden="true"
+          hidden
+        ></div>
         <div
           id="cadHorizontalScrollbar"
           class="cad-scrollbar cad-scrollbar-horizontal is-disabled"
@@ -1469,7 +2559,7 @@
     <footer class="status-bar">
       <span id="cursorX">X: 0.0000</span>
       <span id="cursorY">Y: 0.0000</span>
-      <span>Units: Inch</span>
+      <span id="unitsStatus">Units: Inch</span>
       <span>Snap: Off</span>
       <span id="zoomStatus">Zoom: 100%</span>
       <span id="entityCount">Entities: 0</span>

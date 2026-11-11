@@ -12,14 +12,69 @@
 // Any SVG weirdness must be handled internally.
 
 const APP_NAME = "PrometheusCAD";
-const APP_VERSION = "0.1.21";
+const APP_VERSION = "0.1.49";
+const MILLIMETERS_PER_INCH = 25.4;
+
+// Menu timing controls, in milliseconds. The longer delay applies when the
+// pointer leaves the menu system; the shorter delay applies while switching
+// between dropdowns or flyouts.
+const MENU_HOVER_CLOSE_DELAY_MS = 400;
+const MENU_SWITCH_CLOSE_DELAY_MS = 50;
+const delayedMenuCloseTimers = new WeakMap();
+
+function clearDelayedMenuClose(menuContainer) {
+  const timer = delayedMenuCloseTimers.get(menuContainer);
+  if (timer !== undefined) clearTimeout(timer);
+  delayedMenuCloseTimers.delete(menuContainer);
+}
+
+function enableDelayedMenuClose(menuContainer) {
+  if (!menuContainer || menuContainer.dataset.delayedMenuClose === "true") {
+    return;
+  }
+  menuContainer.dataset.delayedMenuClose = "true";
+
+  menuContainer.addEventListener("pointerenter", () => {
+    clearDelayedMenuClose(menuContainer);
+    menuContainer.classList.remove("is-hover-retained", "is-dismissed");
+    menuContainer
+      .querySelectorAll(".is-hover-retained")
+      .forEach((descendant) => {
+        clearDelayedMenuClose(descendant);
+        descendant.classList.remove("is-hover-retained");
+      });
+  });
+
+  menuContainer.addEventListener("pointerleave", (event) => {
+    clearDelayedMenuClose(menuContainer);
+    menuContainer.classList.add("is-hover-retained");
+    const isMovingWithinMenuSystem = Boolean(
+      event.relatedTarget?.closest?.(
+        ".menu-item, .submenu-item, .dropdown-menu, .submenu-menu",
+      ),
+    );
+    const closeDelay = isMovingWithinMenuSystem
+      ? MENU_SWITCH_CLOSE_DELAY_MS
+      : MENU_HOVER_CLOSE_DELAY_MS;
+    const timer = setTimeout(() => {
+      delayedMenuCloseTimers.delete(menuContainer);
+      menuContainer.classList.remove("is-hover-retained", "is-dismissed");
+    }, closeDelay);
+    delayedMenuCloseTimers.set(menuContainer, timer);
+  });
+}
 
 const cadCanvas = document.querySelector("#cadCanvas");
+const drawingArea = cadCanvas.closest(".drawing-area");
+const cadSelectionMarquee = document.querySelector("#cadSelectionMarquee");
+const menuBar = document.querySelector(".menu-bar");
 const gridLayer = document.querySelector("#gridLayer");
 const axisLayer = document.querySelector("#axisLayer");
 const entityLayer = document.querySelector("#entityLayer");
 const previewLayer = document.querySelector("#previewLayer");
 const worldLayer = document.querySelector("#worldLayer");
+const modelLayer = document.querySelector("#modelLayer");
+const trihedronLayer = document.querySelector("#trihedronLayer");
 const cadHorizontalScrollbar = document.querySelector(
   "#cadHorizontalScrollbar",
 );
@@ -32,30 +87,60 @@ const cadVerticalTrack = document.querySelector("#cadVerticalTrack");
 const cadVerticalThumb = document.querySelector("#cadVerticalThumb");
 const cadScrollUp = document.querySelector("#cadScrollUp");
 const cadScrollDown = document.querySelector("#cadScrollDown");
-const pointCoordinatesWindow = document.querySelector("#pointCoordinatesWindow");
+const pointCoordinatesWindow = document.querySelector(
+  "#pointCoordinatesWindow",
+);
 const pointWindowTitleBar = document.querySelector("#pointWindowTitleBar");
 const pointCoordinatesForm = document.querySelector("#pointCoordinatesForm");
 const pointCoordinatesMenu = document.querySelector("#pointCoordinatesMenu");
 const pointIntersectMenu = document.querySelector("#pointIntersectMenu");
 const pointOnEntityMenu = document.querySelector("#pointOnEntityMenu");
+const pointEndMenu = document.querySelector("#pointEndMenu");
+const pointIncrementalMenu = document.querySelector("#pointIncrementalMenu");
 const pointSketchMenu = document.querySelector("#pointSketchMenu");
 const lineCoordinatesMenu = document.querySelector("#lineCoordinatesMenu");
 const lineSketchMenu = document.querySelector("#lineSketchMenu");
+const lineAngleMenu = document.querySelector("#lineAngleMenu");
+const lineTangentMenu = document.querySelector("#lineTangentMenu");
 const exportDxfMenu = document.querySelector("#exportDxfMenu");
 const fileMenuItem = exportDxfMenu.closest(".menu-item");
 const fileMenuButton = fileMenuItem.querySelector(".menu-button");
 const lineJoinMenu = document.querySelector("#lineJoinMenu");
-const circleCenterRadiusMenu = document.querySelector("#circleCenterRadiusMenu");
+const circleCenterRadiusMenu = document.querySelector(
+  "#circleCenterRadiusMenu",
+);
 const circleCoordinateCenterMenu = document.querySelector(
   "#circleCoordinateCenterMenu",
 );
-const circleSketchCenterMenu = document.querySelector("#circleSketchCenterMenu");
-const circleThreeEntitiesMenu = document.querySelector("#circleThreeEntitiesMenu");
-const hexagonMenu = document.querySelector("#hexagonMenu");
-const rectangleMenu = document.querySelector("#rectangleMenu");
-const boltHoleCircleMenu = document.querySelector("#boltHoleCircleMenu");
+const circleSketchCenterMenu = document.querySelector(
+  "#circleSketchCenterMenu",
+);
+const circleThreeEntitiesMenu = document.querySelector(
+  "#circleThreeEntitiesMenu",
+);
+const hexagonPointCenterMenu = document.querySelector(
+  "#hexagonPointCenterMenu",
+);
+const hexagonDefineCenterMenu = document.querySelector(
+  "#hexagonDefineCenterMenu",
+);
+const rectanglePointCenterMenu = document.querySelector(
+  "#rectanglePointCenterMenu",
+);
+const rectangleDefineCenterMenu = document.querySelector(
+  "#rectangleDefineCenterMenu",
+);
+const boltHoleCirclePointCenterMenu = document.querySelector(
+  "#boltHoleCirclePointCenterMenu",
+);
+const boltHoleCircleDefineCenterMenu = document.querySelector(
+  "#boltHoleCircleDefineCenterMenu",
+);
 const drawMenuItem = lineJoinMenu.closest(".menu-item");
 const drawMenuButton = drawMenuItem.querySelector(".menu-button");
+const modelMenuItem = document.querySelector("#modelMenuItem");
+const modelMenuButton = document.querySelector("#modelMenuButton");
+const modelBoxMenu = document.querySelector("#modelBoxMenu");
 const undoMenu = document.querySelector("#undoMenu");
 const redoMenu = document.querySelector("#redoMenu");
 const copyMenu = document.querySelector("#copyMenu");
@@ -103,6 +188,67 @@ const lineCoordinatesContinueButton = document.querySelector(
 const lineCoordinatesCancelButton = document.querySelector(
   "#lineCoordinatesCancelButton",
 );
+const lineAngleWindow = document.querySelector("#lineAngleWindow");
+const lineAngleWindowTitleBar = document.querySelector(
+  "#lineAngleWindowTitleBar",
+);
+const lineAngleForm = document.querySelector("#lineAngleForm");
+const lineAngleSourceReadout = document.querySelector(
+  "#lineAngleSourceReadout",
+);
+const lineAngleDegreesInput = document.querySelector("#lineAngleDegrees");
+const lineAngleLengthInput = document.querySelector("#lineAngleLength");
+const lineAngleRelativeOptions = document.querySelector(
+  "#lineAngleRelativeOptions",
+);
+const lineAngleRelativeLineInput = document.querySelector(
+  "#lineAngleRelativeLine",
+);
+const lineAngleRelativeAxisInput = document.querySelector(
+  "#lineAngleRelativeAxis",
+);
+const lineAngleToolMessage = document.querySelector("#lineAngleToolMessage");
+const lineAngleCreateButton = document.querySelector("#lineAngleCreateButton");
+const lineAngleMinimizeButton = document.querySelector(
+  "#lineAngleMinimizeButton",
+);
+const lineAngleMaximizeButton = document.querySelector(
+  "#lineAngleMaximizeButton",
+);
+const lineAngleMaximizeIcon = document.querySelector("#lineAngleMaximizeIcon");
+const lineAngleCloseButton = document.querySelector("#lineAngleCloseButton");
+const lineAngleCancelButton = document.querySelector("#lineAngleCancelButton");
+const lineTangentWindow = document.querySelector("#lineTangentWindow");
+const lineTangentWindowTitleBar = document.querySelector(
+  "#lineTangentWindowTitleBar",
+);
+const lineTangentForm = document.querySelector("#lineTangentForm");
+const lineTangentSourceReadout = document.querySelector(
+  "#lineTangentSourceReadout",
+);
+const lineTangentAngleInput = document.querySelector("#lineTangentAngle");
+const lineTangentLengthInput = document.querySelector("#lineTangentLength");
+const lineTangentToolMessage = document.querySelector(
+  "#lineTangentToolMessage",
+);
+const lineTangentCreateButton = document.querySelector(
+  "#lineTangentCreateButton",
+);
+const lineTangentMinimizeButton = document.querySelector(
+  "#lineTangentMinimizeButton",
+);
+const lineTangentMaximizeButton = document.querySelector(
+  "#lineTangentMaximizeButton",
+);
+const lineTangentMaximizeIcon = document.querySelector(
+  "#lineTangentMaximizeIcon",
+);
+const lineTangentCloseButton = document.querySelector(
+  "#lineTangentCloseButton",
+);
+const lineTangentCancelButton = document.querySelector(
+  "#lineTangentCancelButton",
+);
 const circleRadiusWindow = document.querySelector("#circleRadiusWindow");
 const circleWindowTitleBar = document.querySelector("#circleWindowTitleBar");
 const circleRadiusTitle = document.querySelector("#circleRadiusTitle");
@@ -128,22 +274,23 @@ const circleCloseButton = document.querySelector("#circleCloseButton");
 const circleCancelButton = document.querySelector("#circleCancelButton");
 const hexagonWindow = document.querySelector("#hexagonWindow");
 const hexagonWindowTitleBar = document.querySelector("#hexagonWindowTitleBar");
+const hexagonTitle = document.querySelector("#hexagonTitle");
 const hexagonForm = document.querySelector("#hexagonForm");
-const hexagonAcrossFlatsInput = document.querySelector(
-  "#hexagonAcrossFlats",
+const hexagonCenterReadoutGroup = document.querySelector(
+  "#hexagonCenterReadoutGroup",
 );
-const hexagonCornerRadiusInput = document.querySelector(
-  "#hexagonCornerRadius",
-);
+const hexagonAcrossFlatsInput = document.querySelector("#hexagonAcrossFlats");
+const hexagonCornerRadiusInput = document.querySelector("#hexagonCornerRadius");
 const hexagonCenterReadout = document.querySelector("#hexagonCenterReadout");
+const hexagonCoordinateCenterFields = document.querySelector(
+  "#hexagonCoordinateCenterFields",
+);
+const hexagonCenterXInput = document.querySelector("#hexagonCenterX");
+const hexagonCenterYInput = document.querySelector("#hexagonCenterY");
 const hexagonToolMessage = document.querySelector("#hexagonToolMessage");
 const hexagonCreateButton = document.querySelector("#hexagonCreateButton");
-const hexagonMinimizeButton = document.querySelector(
-  "#hexagonMinimizeButton",
-);
-const hexagonMaximizeButton = document.querySelector(
-  "#hexagonMaximizeButton",
-);
+const hexagonMinimizeButton = document.querySelector("#hexagonMinimizeButton");
+const hexagonMaximizeButton = document.querySelector("#hexagonMaximizeButton");
 const hexagonMaximizeIcon = document.querySelector("#hexagonMaximizeIcon");
 const hexagonCloseButton = document.querySelector("#hexagonCloseButton");
 const hexagonCancelButton = document.querySelector("#hexagonCancelButton");
@@ -151,32 +298,54 @@ const rectangleWindow = document.querySelector("#rectangleWindow");
 const rectangleWindowTitleBar = document.querySelector(
   "#rectangleWindowTitleBar",
 );
+const rectangleTitle = document.querySelector("#rectangleTitle");
 const rectangleForm = document.querySelector("#rectangleForm");
+const rectangleCenterReadoutGroup = document.querySelector(
+  "#rectangleCenterReadoutGroup",
+);
+const rectangleCenterReadout = document.querySelector(
+  "#rectangleCenterReadout",
+);
+const rectangleCoordinateCenterFields = document.querySelector(
+  "#rectangleCoordinateCenterFields",
+);
 const rectangleCenterXInput = document.querySelector("#rectangleCenterX");
 const rectangleCenterYInput = document.querySelector("#rectangleCenterY");
 const rectangleXInput = document.querySelector("#rectangleX");
 const rectangleYInput = document.querySelector("#rectangleY");
 const rectangleRadiusInput = document.querySelector("#rectangleRadius");
 const rectangleToolMessage = document.querySelector("#rectangleToolMessage");
-const rectangleCreateButton = document.querySelector(
-  "#rectangleCreateButton",
-);
+const rectangleCreateButton = document.querySelector("#rectangleCreateButton");
 const rectangleMinimizeButton = document.querySelector(
   "#rectangleMinimizeButton",
 );
 const rectangleMaximizeButton = document.querySelector(
   "#rectangleMaximizeButton",
 );
-const rectangleMaximizeIcon = document.querySelector(
-  "#rectangleMaximizeIcon",
-);
+const rectangleMaximizeIcon = document.querySelector("#rectangleMaximizeIcon");
 const rectangleCloseButton = document.querySelector("#rectangleCloseButton");
 const rectangleCancelButton = document.querySelector("#rectangleCancelButton");
 const boltHoleCircleWindow = document.querySelector("#boltHoleCircleWindow");
 const boltHoleCircleWindowTitleBar = document.querySelector(
   "#boltHoleCircleWindowTitleBar",
 );
+const boltHoleCircleTitle = document.querySelector("#boltHoleCircleTitle");
 const boltHoleCircleForm = document.querySelector("#boltHoleCircleForm");
+const boltHoleCircleCenterReadoutGroup = document.querySelector(
+  "#boltHoleCircleCenterReadoutGroup",
+);
+const boltHoleCircleCenterReadout = document.querySelector(
+  "#boltHoleCircleCenterReadout",
+);
+const boltHoleCircleCoordinateCenterFields = document.querySelector(
+  "#boltHoleCircleCoordinateCenterFields",
+);
+const boltHoleCircleCenterXInput = document.querySelector(
+  "#boltHoleCircleCenterX",
+);
+const boltHoleCircleCenterYInput = document.querySelector(
+  "#boltHoleCircleCenterY",
+);
 const boltHoleDiameterInput = document.querySelector("#boltHoleDiameter");
 const boltHoleCountInput = document.querySelector("#boltHoleCount");
 const boltHoleFeatureDiameterInput = document.querySelector(
@@ -203,22 +372,42 @@ const boltHoleCircleCloseButton = document.querySelector(
 const boltHoleCircleCancelButton = document.querySelector(
   "#boltHoleCircleCancelButton",
 );
+const textMenu = document.querySelector("#textMenu");
+const textWindow = document.querySelector("#textWindow");
+const textWindowTitleBar = document.querySelector("#textWindowTitleBar");
+const textForm = document.querySelector("#textForm");
+const textHeightInput = document.querySelector("#textHeight");
+const textContentInput = document.querySelector("#textContent");
+const textToolMessage = document.querySelector("#textToolMessage");
+const textMinimizeButton = document.querySelector("#textMinimizeButton");
+const textMaximizeButton = document.querySelector("#textMaximizeButton");
+const textMaximizeIcon = document.querySelector("#textMaximizeIcon");
+const textCloseButton = document.querySelector("#textCloseButton");
+const textCancelButton = document.querySelector("#textCancelButton");
 const trimExtendMenu = document.querySelector("#trimExtendMenu");
 const filletRadiusMenu = document.querySelector("#filletRadiusMenu");
 const offsetMenu = document.querySelector("#offsetMenu");
 const rotateMenu = document.querySelector("#rotateMenu");
+const translateCoordinatesMenu = document.querySelector(
+  "#translateCoordinatesMenu",
+);
+const translateByPointsMenu = document.querySelector("#translateByPointsMenu");
 const mirrorXAxisMenu = document.querySelector("#mirrorXAxisMenu");
 const mirrorYAxisMenu = document.querySelector("#mirrorYAxisMenu");
 const mirrorBothAxesMenu = document.querySelector("#mirrorBothAxesMenu");
+const mirrorXAxisLabel = document.querySelector("#mirrorXAxisLabel");
+const mirrorYAxisLabel = document.querySelector("#mirrorYAxisLabel");
+const mirrorBothAxesLabel = document.querySelector("#mirrorBothAxesLabel");
 const mirrorCopyInput = document.querySelector("#mirrorCopyInput");
 const modifyMenuItem = offsetMenu.closest(".menu-item");
 const modifyMenuButton = modifyMenuItem.querySelector(".menu-button");
 const linearDimensionMenu = document.querySelector("#linearDimensionMenu");
-const diameterDimensionMenu = document.querySelector(
-  "#diameterDimensionMenu",
-);
+const diameterDimensionMenu = document.querySelector("#diameterDimensionMenu");
 const radiusDimensionMenu = document.querySelector("#radiusDimensionMenu");
 const angleDimensionMenu = document.querySelector("#angleDimensionMenu");
+const modelDimensionPlaceholder = document.querySelector(
+  "#modelDimensionPlaceholder",
+);
 const dimensionMenuItem = linearDimensionMenu.closest(".menu-item");
 const dimensionMenuButton = dimensionMenuItem.querySelector(".menu-button");
 const offsetWindow = document.querySelector("#offsetWindow");
@@ -250,6 +439,11 @@ const rotateForm = document.querySelector("#rotateForm");
 const rotateAngleInput = document.querySelector("#rotateAngle");
 const rotatePivotOriginInput = document.querySelector("#rotatePivotOrigin");
 const rotatePivotPointInput = document.querySelector("#rotatePivotPoint");
+const rotatePivotOptions = document.querySelector(".rotate-pivot-options");
+const rotateAxisOptions = document.querySelector("#rotateAxisOptions");
+const rotateAxisXInput = document.querySelector("#rotateAxisX");
+const rotateAxisYInput = document.querySelector("#rotateAxisY");
+const rotateAxisZInput = document.querySelector("#rotateAxisZ");
 const rotateSelectionReadout = document.querySelector(
   "#rotateSelectionReadout",
 );
@@ -263,6 +457,105 @@ const rotateMaximizeButton = document.querySelector("#rotateMaximizeButton");
 const rotateMaximizeIcon = document.querySelector("#rotateMaximizeIcon");
 const rotateCloseButton = document.querySelector("#rotateCloseButton");
 const rotateCancelButton = document.querySelector("#rotateCancelButton");
+const pointIncrementalWindow = document.querySelector(
+  "#pointIncrementalWindow",
+);
+const pointIncrementalWindowTitleBar = document.querySelector(
+  "#pointIncrementalWindowTitleBar",
+);
+const pointIncrementalForm = document.querySelector("#pointIncrementalForm");
+const pointIncrementalXInput = document.querySelector("#pointIncrementalX");
+const pointIncrementalYInput = document.querySelector("#pointIncrementalY");
+const pointIncrementalCopyInput = document.querySelector(
+  "#pointIncrementalCopyInput",
+);
+const pointIncrementalSelectionReadout = document.querySelector(
+  "#pointIncrementalSelectionReadout",
+);
+const pointIncrementalToolMessage = document.querySelector(
+  "#pointIncrementalToolMessage",
+);
+const pointIncrementalMinimizeButton = document.querySelector(
+  "#pointIncrementalMinimizeButton",
+);
+const pointIncrementalMaximizeButton = document.querySelector(
+  "#pointIncrementalMaximizeButton",
+);
+const pointIncrementalMaximizeIcon = document.querySelector(
+  "#pointIncrementalMaximizeIcon",
+);
+const pointIncrementalCloseButton = document.querySelector(
+  "#pointIncrementalCloseButton",
+);
+const pointIncrementalCancelButton = document.querySelector(
+  "#pointIncrementalCancelButton",
+);
+const translateWindow = document.querySelector("#translateWindow");
+const translateWindowTitleBar = document.querySelector(
+  "#translateWindowTitleBar",
+);
+const translateForm = document.querySelector("#translateForm");
+const translateXInput = document.querySelector("#translateX");
+const translateYInput = document.querySelector("#translateY");
+const translateZField = document.querySelector("#translateZField");
+const translateZInput = document.querySelector("#translateZ");
+const translateCopyInput = document.querySelector("#translateCopyInput");
+const translateSelectionReadout = document.querySelector(
+  "#translateSelectionReadout",
+);
+const translateToolMessage = document.querySelector("#translateToolMessage");
+const translateMinimizeButton = document.querySelector(
+  "#translateMinimizeButton",
+);
+const translateMaximizeButton = document.querySelector(
+  "#translateMaximizeButton",
+);
+const translateMaximizeIcon = document.querySelector("#translateMaximizeIcon");
+const translateCloseButton = document.querySelector("#translateCloseButton");
+const translateCancelButton = document.querySelector("#translateCancelButton");
+const translateByPointsWindow = document.querySelector(
+  "#translateByPointsWindow",
+);
+const translateByPointsWindowTitleBar = document.querySelector(
+  "#translateByPointsWindowTitleBar",
+);
+const translateByPointsForm = document.querySelector("#translateByPointsForm");
+const translateByPointsSelectionReadout = document.querySelector(
+  "#translateByPointsSelectionReadout",
+);
+const translateByPointsFirstReadout = document.querySelector(
+  "#translateByPointsFirstReadout",
+);
+const translateByPointsSecondReadout = document.querySelector(
+  "#translateByPointsSecondReadout",
+);
+const translateByPointsVectorReadout = document.querySelector(
+  "#translateByPointsVectorReadout",
+);
+const translateByPointsCopyInput = document.querySelector(
+  "#translateByPointsCopyInput",
+);
+const translateByPointsToolMessage = document.querySelector(
+  "#translateByPointsToolMessage",
+);
+const translateByPointsApplyButton = document.querySelector(
+  "#translateByPointsApplyButton",
+);
+const translateByPointsMinimizeButton = document.querySelector(
+  "#translateByPointsMinimizeButton",
+);
+const translateByPointsMaximizeButton = document.querySelector(
+  "#translateByPointsMaximizeButton",
+);
+const translateByPointsMaximizeIcon = document.querySelector(
+  "#translateByPointsMaximizeIcon",
+);
+const translateByPointsCloseButton = document.querySelector(
+  "#translateByPointsCloseButton",
+);
+const translateByPointsCancelButton = document.querySelector(
+  "#translateByPointsCancelButton",
+);
 const pointOnEntityWindow = document.querySelector("#pointOnEntityWindow");
 const pointOnEntityWindowTitleBar = document.querySelector(
   "#pointOnEntityWindowTitleBar",
@@ -302,12 +595,18 @@ const zoomOutMenu = document.querySelector("#zoomOutMenu");
 const windowZoomMenu = document.querySelector("#windowZoomMenu");
 const homeViewMenu = document.querySelector("#homeViewMenu");
 const fitViewMenu = document.querySelector("#fitViewMenu");
+const showTrihedronMenu = document.querySelector("#showTrihedronMenu");
 const viewMenuItem = windowZoomMenu.closest(".menu-item");
 const viewMenuButton = viewMenuItem.querySelector(".menu-button");
-const layerCurrentMenu = document.querySelector("#layerCurrentMenu");
+const layerDropdownMenu = document.querySelector("#layerDropdownMenu");
+const layerList = document.querySelector("#layerList");
 const newLayerMenu = document.querySelector("#newLayerMenu");
-const layerMenuItem = layerCurrentMenu.closest(".menu-item");
+const layerMenuItem = newLayerMenu.closest(".menu-item");
 const layerMenuButton = layerMenuItem.querySelector(".menu-button");
+const inchUnitsMenu = document.querySelector("#inchUnitsMenu");
+const metricUnitsMenu = document.querySelector("#metricUnitsMenu");
+const unitsMenuItem = inchUnitsMenu.closest(".menu-item");
+const unitsMenuButton = unitsMenuItem.querySelector(".menu-button");
 const aboutMenu = document.querySelector("#aboutMenu");
 const helpMenuItem = aboutMenu.closest(".menu-item");
 const helpMenuButton = helpMenuItem.querySelector(".menu-button");
@@ -315,18 +614,32 @@ const aboutWindow = document.querySelector("#aboutWindow");
 const aboutWindowTitleBar = document.querySelector("#aboutWindowTitleBar");
 const aboutCloseButton = document.querySelector("#aboutCloseButton");
 const aboutVersion = document.querySelector("#aboutVersion");
+const boxWindow = document.querySelector("#boxWindow");
+const boxWindowTitleBar = document.querySelector("#boxWindowTitleBar");
+const boxForm = document.querySelector("#boxForm");
+const boxXInput = document.querySelector("#boxX");
+const boxYInput = document.querySelector("#boxY");
+const boxZInput = document.querySelector("#boxZ");
+const boxLengthInput = document.querySelector("#boxLength");
+const boxWidthInput = document.querySelector("#boxWidth");
+const boxHeightInput = document.querySelector("#boxHeight");
+const boxDraftAngleInput = document.querySelector("#boxDraftAngle");
+const boxToolMessage = document.querySelector("#boxToolMessage");
+const boxCreateButton = document.querySelector("#boxCreateButton");
+const boxMinimizeButton = document.querySelector("#boxMinimizeButton");
+const boxMaximizeButton = document.querySelector("#boxMaximizeButton");
+const boxMaximizeIcon = document.querySelector("#boxMaximizeIcon");
+const boxCloseButton = document.querySelector("#boxCloseButton");
+const boxCancelButton = document.querySelector("#boxCancelButton");
+const quickIsometricButton = document.querySelector("#quickIsometricButton");
 const quickUndoButton = document.querySelector("#quickUndoButton");
 const quickRedoButton = document.querySelector("#quickRedoButton");
 const quickZoomInButton = document.querySelector("#quickZoomInButton");
 const quickZoomOutButton = document.querySelector("#quickZoomOutButton");
-const quickZoomWindowButton = document.querySelector(
-  "#quickZoomWindowButton",
-);
+const quickZoomWindowButton = document.querySelector("#quickZoomWindowButton");
 const quickHomeButton = document.querySelector("#quickHomeButton");
 const quickFitButton = document.querySelector("#quickFitButton");
-const quickCalculatorButton = document.querySelector(
-  "#quickCalculatorButton",
-);
+const quickCalculatorButton = document.querySelector("#quickCalculatorButton");
 const graniteThemeMenu = document.querySelector("#graniteThemeMenu");
 const lightThemeMenu = document.querySelector("#lightThemeMenu");
 const darkThemeMenu = document.querySelector("#darkThemeMenu");
@@ -336,6 +649,9 @@ const themeMenuButton = themeMenuItem.querySelector(".menu-button");
 const selectAllMenu = document.querySelector("#selectAllMenu");
 const singleSelectMenu = document.querySelector("#singleSelectMenu");
 const selectChainMenu = document.querySelector("#selectChainMenu");
+const selectLayerMenu = document.querySelector("#selectLayerMenu");
+const selectLayerSubmenu = document.querySelector("#selectLayerSubmenu");
+const selectLayerList = document.querySelector("#selectLayerList");
 const selectPointsMenu = document.querySelector("#selectPointsMenu");
 const selectLinesMenu = document.querySelector("#selectLinesMenu");
 const selectArcsMenu = document.querySelector("#selectArcsMenu");
@@ -345,6 +661,7 @@ const selectMenuItem = singleSelectMenu.closest(".menu-item");
 const selectMenuButton = selectMenuItem.querySelector(".menu-button");
 const cursorX = document.querySelector("#cursorX");
 const cursorY = document.querySelector("#cursorY");
+const unitsStatus = document.querySelector("#unitsStatus");
 const zoomStatus = document.querySelector("#zoomStatus");
 const entityCount = document.querySelector("#entityCount");
 const commandStatus = document.querySelector("#commandStatus");
@@ -353,6 +670,79 @@ const entityHoverInfo = document.querySelector("#entityHoverInfo");
 const documentModel = {
   entities: [],
   nextEntityId: 1,
+  // 3D solids live in a separate object space. The first renderer consumes
+  // true XYZ boundary vertices/faces plus a transform, while the geometry
+  // payload remains open to a later analytic/B-rep or CSG kernel. Any profile
+  // reference is provenance only: future modeling commands must copy evaluated
+  // profile geometry rather than mutating or live-linking the 2D entities.
+  model3d: {
+    solids: [],
+    nextSolidId: 1,
+  },
+  units: "inch",
+  layers: [
+    {
+      id: 0,
+      name: "Layer 0",
+      locked: false,
+      masked: false,
+    },
+  ],
+  currentLayerId: 0,
+  nextLayerId: 1,
+};
+
+const MAX_LAYER_COUNT = 10;
+
+const UNIT_LENGTH_INPUTS = new Set([
+  pointXInput,
+  pointYInput,
+  lineStartXInput,
+  lineStartYInput,
+  lineEndXInput,
+  lineEndYInput,
+  lineAngleLengthInput,
+  lineTangentLengthInput,
+  circleRadiusInput,
+  circleCenterXInput,
+  circleCenterYInput,
+  hexagonCenterXInput,
+  hexagonCenterYInput,
+  hexagonAcrossFlatsInput,
+  hexagonCornerRadiusInput,
+  rectangleCenterXInput,
+  rectangleCenterYInput,
+  rectangleXInput,
+  rectangleYInput,
+  rectangleRadiusInput,
+  boltHoleCircleCenterXInput,
+  boltHoleCircleCenterYInput,
+  boltHoleDiameterInput,
+  boltHoleFeatureDiameterInput,
+  textHeightInput,
+  offsetAmountInput,
+  filletRadiusInput,
+  pointIncrementalXInput,
+  pointIncrementalYInput,
+  translateXInput,
+  translateYInput,
+  translateZInput,
+  boxXInput,
+  boxYInput,
+  boxZInput,
+  boxLengthInput,
+  boxWidthInput,
+  boxHeightInput,
+]);
+
+const UNIT_MENUS = {
+  inch: inchUnitsMenu,
+  metric: metricUnitsMenu,
+};
+
+const UNIT_DISPLAY_NAMES = {
+  inch: "Inch",
+  metric: "Metric",
 };
 
 const HISTORY_LIMIT = 100;
@@ -364,6 +754,7 @@ const historyState = {
 const clipboardState = {
   entities: [],
   rootEntityIds: [],
+  solids: [],
 };
 
 const BASE_VIEW = {
@@ -374,6 +765,16 @@ const BASE_VIEW = {
 const ZOOM_STEP = 0.2;
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 5;
+const CANVAS_DRAG_THRESHOLD_PX = 5;
+const ORBIT_RADIANS_PER_PIXEL = (0.45 * Math.PI) / 180;
+const MIN_ORBIT_PITCH_RADIANS = (-80 * Math.PI) / 180;
+const MAX_ORBIT_PITCH_RADIANS = (80 * Math.PI) / 180;
+const WHEEL_ZOOM_FACTOR = 1.2;
+const TRIHEDRON_AXIS_LENGTH_PX = 78;
+const TRIHEDRON_SHAFT_LENGTH_PX = 56;
+const TRIHEDRON_SHAFT_RADIUS_PX = 3.5;
+const TRIHEDRON_CONE_RADIUS_PX = 8;
+const TRIHEDRON_RADIAL_SEGMENTS = 12;
 
 const THEME_MENUS = {
   granite: graniteThemeMenu,
@@ -398,6 +799,26 @@ const viewState = {
   navigationAnchor: null,
 };
 
+const workspaceState = {
+  mode: "2d",
+};
+
+const ISOMETRIC_YAW_RADIANS = (45 * Math.PI) / 180;
+const ISOMETRIC_PITCH_RADIANS = (35.264 * Math.PI) / 180;
+const isometricViewState = {
+  active: false,
+  previousView: null,
+  displayView: null,
+  hasGeometry: false,
+  yaw: ISOMETRIC_YAW_RADIANS,
+  pitch: ISOMETRIC_PITCH_RADIANS,
+  pivotWorld: { x: 0, y: 0, z: 0 },
+};
+
+const trihedronState = {
+  visible: true,
+};
+
 const viewportScrollState = {
   horizontal: {
     enabled: false,
@@ -419,6 +840,12 @@ const windowZoomState = {
   suppressClickUntil: 0,
 };
 
+const canvasNavigationState = {
+  drag: null,
+  suppressClickUntil: 0,
+  suppressContextMenuUntil: 0,
+};
+
 const selectionState = {
   mode: null,
   _selectedEntityId: null,
@@ -435,6 +862,13 @@ const selectionState = {
   pickCycle: null,
 };
 
+const modelSelectionState = {
+  selectedSolidIds: new Set(),
+  selectedFace: null,
+  hoveredSolidId: null,
+  hoveredFaceIndex: null,
+};
+
 const chainSelectionState = {
   candidateEntityId: null,
   exitEndpointIndex: null,
@@ -446,11 +880,166 @@ function isEntitySelected(entityId) {
 }
 
 function addEntityIdsToSelection(entityIds) {
-  entityIds.forEach((entityId) => selectionState.selectedEntityIds.add(entityId));
+  entityIds.forEach((entityId) =>
+    selectionState.selectedEntityIds.add(entityId),
+  );
   selectionState._selectedEntityId =
     selectionState.selectedEntityIds.size === 1
       ? selectionState.selectedEntityIds.values().next().value
       : null;
+}
+
+function is3dWorkspace() {
+  return workspaceState.mode === "3d";
+}
+
+function clonePlainModelValue(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function getSolidById(solidId) {
+  return documentModel.model3d.solids.find((solid) => solid.id === solidId);
+}
+
+function getSelectedModelSolids() {
+  return documentModel.model3d.solids.filter((solid) =>
+    modelSelectionState.selectedSolidIds.has(solid.id),
+  );
+}
+
+function clearModelSelection() {
+  modelSelectionState.selectedSolidIds.clear();
+  modelSelectionState.selectedFace = null;
+  modelSelectionState.hoveredSolidId = null;
+  modelSelectionState.hoveredFaceIndex = null;
+}
+
+function getIdentityMatrix4() {
+  return [
+    1, 0, 0, 0,
+    0, 1, 0, 0,
+    0, 0, 1, 0,
+    0, 0, 0, 1,
+  ];
+}
+
+function multiplyMatrix4(first, second) {
+  const result = new Array(16).fill(0);
+  for (let row = 0; row < 4; row += 1) {
+    for (let column = 0; column < 4; column += 1) {
+      for (let index = 0; index < 4; index += 1) {
+        result[row * 4 + column] +=
+          first[row * 4 + index] * second[index * 4 + column];
+      }
+    }
+  }
+  return result;
+}
+
+function getTranslationMatrix4(x = 0, y = 0, z = 0) {
+  return [
+    1, 0, 0, x,
+    0, 1, 0, y,
+    0, 0, 1, z,
+    0, 0, 0, 1,
+  ];
+}
+
+function getScaleMatrix4(x = 1, y = 1, z = 1) {
+  return [
+    x, 0, 0, 0,
+    0, y, 0, 0,
+    0, 0, z, 0,
+    0, 0, 0, 1,
+  ];
+}
+
+function getAxisRotationMatrix4(axis, radians) {
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  if (axis === "x") {
+    return [
+      1, 0, 0, 0,
+      0, cosine, -sine, 0,
+      0, sine, cosine, 0,
+      0, 0, 0, 1,
+    ];
+  }
+  if (axis === "y") {
+    return [
+      cosine, 0, sine, 0,
+      0, 1, 0, 0,
+      -sine, 0, cosine, 0,
+      0, 0, 0, 1,
+    ];
+  }
+  return [
+    cosine, -sine, 0, 0,
+    sine, cosine, 0, 0,
+    0, 0, 1, 0,
+    0, 0, 0, 1,
+  ];
+}
+
+function getReflectionMatrix4(coordinate) {
+  return getScaleMatrix4(
+    coordinate === "x" ? -1 : 1,
+    coordinate === "y" ? -1 : 1,
+    coordinate === "z" ? -1 : 1,
+  );
+}
+
+function transformPointByMatrix4(matrix, point) {
+  return {
+    x: matrix[0] * point.x + matrix[1] * point.y + matrix[2] * point.z + matrix[3],
+    y: matrix[4] * point.x + matrix[5] * point.y + matrix[6] * point.z + matrix[7],
+    z: matrix[8] * point.x + matrix[9] * point.y + matrix[10] * point.z + matrix[11],
+  };
+}
+
+function getMatrix3Determinant(matrix) {
+  return (
+    matrix[0] * (matrix[5] * matrix[10] - matrix[6] * matrix[9]) -
+    matrix[1] * (matrix[4] * matrix[10] - matrix[6] * matrix[8]) +
+    matrix[2] * (matrix[4] * matrix[9] - matrix[5] * matrix[8])
+  );
+}
+
+function getDefaultSolidTransform() {
+  return { matrix: getIdentityMatrix4() };
+}
+
+function normalizeSolidTransform(solid) {
+  const transform = solid.transform ?? getDefaultSolidTransform();
+  if (
+    Array.isArray(transform.matrix) &&
+    transform.matrix.length === 16 &&
+    transform.matrix.every(Number.isFinite)
+  ) {
+    solid.transform = transform;
+    return transform;
+  }
+
+  // Migrate the provisional V0.1.41 translation/rotation/scale adapter into
+  // one affine transform without changing the represented world geometry.
+  const translation = { x: 0, y: 0, z: 0, ...(transform.translation ?? {}) };
+  const rotation = { x: 0, y: 0, z: 0, ...(transform.rotation ?? {}) };
+  const scale = { x: 1, y: 1, z: 1, ...(transform.scale ?? {}) };
+  let matrix = getScaleMatrix4(scale.x, scale.y, scale.z);
+  matrix = multiplyMatrix4(getAxisRotationMatrix4("x", rotation.x), matrix);
+  matrix = multiplyMatrix4(getAxisRotationMatrix4("y", rotation.y), matrix);
+  matrix = multiplyMatrix4(getAxisRotationMatrix4("z", rotation.z), matrix);
+  matrix = multiplyMatrix4(
+    getTranslationMatrix4(translation.x, translation.y, translation.z),
+    matrix,
+  );
+  solid.transform = { matrix };
+  return solid.transform;
+}
+
+function prependSolidTransform(solid, matrix) {
+  const transform = normalizeSolidTransform(solid);
+  transform.matrix = multiplyMatrix4(matrix, transform.matrix);
 }
 
 const joinState = {
@@ -469,6 +1058,19 @@ const lineSketchState = {
   previewWorld: null,
 };
 
+const lineAngleState = {
+  active: false,
+  sourceEntityId: null,
+  startPointId: null,
+  lineBaseAngle: 0,
+};
+
+const lineTangentState = {
+  active: false,
+  sourceEntityId: null,
+  centerPointId: null,
+};
+
 const circleState = {
   active: false,
   centerPointId: null,
@@ -478,6 +1080,19 @@ const circleState = {
 const hexagonState = {
   active: false,
   centerPointId: null,
+  centerMode: null,
+};
+
+const rectangleState = {
+  active: false,
+  centerPointId: null,
+  centerMode: null,
+};
+
+const boltHoleCircleState = {
+  active: false,
+  centerPointId: null,
+  centerMode: null,
 };
 
 const intersectionState = {
@@ -512,13 +1127,14 @@ const filletState = {
 const rotateState = {
   active: false,
   entityId: null,
+  solidIds: [],
   pivotPointId: null,
   awaitingPivot: false,
 };
 
 const dimensionState = {
   activeType: null,
-  firstPointId: null,
+  firstEntityId: null,
   firstLineId: null,
   firstPickWorld: null,
 };
@@ -534,6 +1150,15 @@ const pointOnEntityState = {
   angleDegrees: 0,
 };
 
+const pointEndState = {
+  active: false,
+};
+
+const textPlacementState = {
+  active: false,
+  previewWorld: null,
+};
+
 const GEOMETRY_EPSILON = 1e-9;
 const CHAIN_CONNECTION_TOLERANCE = 1e-6;
 const MAX_BOLT_HOLE_COUNT = 1000;
@@ -545,6 +1170,18 @@ const pointWindowState = {
 };
 
 const lineCoordinatesWindowState = {
+  hasPosition: false,
+  restoreBounds: null,
+  drag: null,
+};
+
+const lineAngleWindowState = {
+  hasPosition: false,
+  restoreBounds: null,
+  drag: null,
+};
+
+const lineTangentWindowState = {
   hasPosition: false,
   restoreBounds: null,
   drag: null,
@@ -574,6 +1211,12 @@ const boltHoleCircleWindowState = {
   drag: null,
 };
 
+const textWindowState = {
+  hasPosition: false,
+  restoreBounds: null,
+  drag: null,
+};
+
 const offsetWindowState = {
   hasPosition: false,
   restoreBounds: null,
@@ -596,6 +1239,37 @@ const rotateWindowState = {
   hasPosition: false,
   restoreBounds: null,
   drag: null,
+};
+
+const translateWindowState = {
+  hasPosition: false,
+  restoreBounds: null,
+  drag: null,
+};
+
+const boxWindowState = {
+  hasPosition: false,
+  restoreBounds: null,
+  drag: null,
+};
+
+const pointIncrementalWindowState = {
+  hasPosition: false,
+  restoreBounds: null,
+  drag: null,
+};
+
+const translateByPointsWindowState = {
+  hasPosition: false,
+  restoreBounds: null,
+  drag: null,
+};
+
+const translateByPointsState = {
+  active: false,
+  entityIds: [],
+  firstPointId: null,
+  secondPointId: null,
 };
 
 const aboutWindowState = {
@@ -638,38 +1312,46 @@ function drawLine(parent, x1, y1, x2, y2, className) {
   parent.appendChild(line);
 }
 
-function drawAxesAndTicks() {
+function drawAxesAndTicks(bounds = VIEW) {
   gridLayer.innerHTML = "";
   axisLayer.innerHTML = "";
 
-  const halfTick = 0.5;
+  const fullTick =
+    documentModel.units === "metric" ? 10 / MILLIMETERS_PER_INCH : 1;
+  const halfTick = fullTick / 2;
   const tickSizeHalfInch = 0.06;
   const tickSizeFullInch = 0.12;
 
   // X axis
-  drawLine(axisLayer, VIEW.xMin, 0, VIEW.xMax, 0, "axis-line");
+  drawLine(axisLayer, bounds.xMin, 0, bounds.xMax, 0, "axis-line");
 
   // Y axis
-  drawLine(axisLayer, 0, VIEW.yMin, 0, VIEW.yMax, "axis-line");
+  drawLine(axisLayer, 0, bounds.yMin, 0, bounds.yMax, "axis-line");
 
   // Ticks along X axis
-  for (let x = Math.ceil(VIEW.xMin * 2) / 2; x <= VIEW.xMax; x += halfTick) {
+  const firstXTick = Math.ceil(bounds.xMin / halfTick - 1e-10);
+  const lastXTick = Math.floor(bounds.xMax / halfTick + 1e-10);
+  for (let tickIndex = firstXTick; tickIndex <= lastXTick; tickIndex += 1) {
+    const x = tickIndex * halfTick;
     if (Math.abs(x) < 0.0001) continue;
 
-    const isFullInch = Math.abs(x % 1) < 0.0001;
-    const tickSize = isFullInch ? tickSizeFullInch : tickSizeHalfInch;
-    const className = isFullInch ? "tick-full" : "tick-half";
+    const isFullUnit = tickIndex % 2 === 0;
+    const tickSize = isFullUnit ? tickSizeFullInch : tickSizeHalfInch;
+    const className = isFullUnit ? "tick-full" : "tick-half";
 
     drawLine(axisLayer, x, -tickSize, x, tickSize, className);
   }
 
   // Ticks along Y axis
-  for (let y = Math.ceil(VIEW.yMin * 2) / 2; y <= VIEW.yMax; y += halfTick) {
+  const firstYTick = Math.ceil(bounds.yMin / halfTick - 1e-10);
+  const lastYTick = Math.floor(bounds.yMax / halfTick + 1e-10);
+  for (let tickIndex = firstYTick; tickIndex <= lastYTick; tickIndex += 1) {
+    const y = tickIndex * halfTick;
     if (Math.abs(y) < 0.0001) continue;
 
-    const isFullInch = Math.abs(y % 1) < 0.0001;
-    const tickSize = isFullInch ? tickSizeFullInch : tickSizeHalfInch;
-    const className = isFullInch ? "tick-full" : "tick-half";
+    const isFullUnit = tickIndex % 2 === 0;
+    const tickSize = isFullUnit ? tickSizeFullInch : tickSizeHalfInch;
+    const className = isFullUnit ? "tick-full" : "tick-half";
 
     drawLine(axisLayer, -tickSize, y, tickSize, y, className);
   }
@@ -683,6 +1365,63 @@ function applyApplicationIdentity() {
   if (versionMetadata) versionMetadata.content = APP_VERSION;
   if (headerVersion) headerVersion.textContent = displayVersion;
   aboutVersion.textContent = `${APP_NAME} ${displayVersion}`;
+}
+
+let textMeasurementContext = null;
+
+function getCadTextWidth(content, height) {
+  const normalizedContent = String(content ?? "");
+  if (!normalizedContent || !Number.isFinite(height) || height <= 0) return 0;
+  if (!textMeasurementContext) {
+    textMeasurementContext = document.createElement("canvas").getContext("2d");
+  }
+  if (!textMeasurementContext) {
+    return Math.max(height * 0.35, normalizedContent.length * height * 0.55);
+  }
+  const measurementSize = 1000;
+  textMeasurementContext.font =
+    `${measurementSize}px "Atkinson Hyperlegible", sans-serif`;
+  return Math.max(
+    height * 0.35,
+    (textMeasurementContext.measureText(normalizedContent).width /
+      measurementSize) *
+      height,
+  );
+}
+
+function getTextEntityBounds(entity) {
+  if (
+    !entity ||
+    !Number.isFinite(entity.x) ||
+    !Number.isFinite(entity.y) ||
+    !Number.isFinite(entity.height) ||
+    entity.height <= 0
+  ) {
+    return null;
+  }
+  const width = getCadTextWidth(entity.content, entity.height);
+  return {
+    minX: entity.x - width / 2,
+    minY: entity.y,
+    maxX: entity.x + width / 2,
+    maxY: entity.y + entity.height,
+    width,
+    height: entity.height,
+  };
+}
+
+function createCadTextElement(entity, className) {
+  const text = createSvgElement("text", {
+    x: entity.x,
+    y: -entity.y,
+    transform: "scale(1 -1)",
+    class: className,
+    "font-size": entity.height,
+    "text-anchor": "middle",
+    "dominant-baseline": "text-after-edge",
+  });
+  text.textContent = entity.content;
+  return text;
 }
 
 function clampViewportValue(value, minimum, maximum) {
@@ -706,6 +1445,7 @@ function getDocumentGeometryBounds() {
   }
 
   documentModel.entities.forEach((entity) => {
+    if (!isEntityLayerVisible(entity)) return;
     if (entity.type === "point") {
       if (!entity.isConstruction) includePoint(entity.x, entity.y);
       return;
@@ -722,8 +1462,22 @@ function getDocumentGeometryBounds() {
     if (entity.type === "circle") {
       const centerPoint = getPointById(entity.centerPointId);
       if (!centerPoint || !Number.isFinite(entity.radius)) return;
-      includePoint(centerPoint.x - entity.radius, centerPoint.y - entity.radius);
-      includePoint(centerPoint.x + entity.radius, centerPoint.y + entity.radius);
+      includePoint(
+        centerPoint.x - entity.radius,
+        centerPoint.y - entity.radius,
+      );
+      includePoint(
+        centerPoint.x + entity.radius,
+        centerPoint.y + entity.radius,
+      );
+      return;
+    }
+
+    if (entity.type === "text") {
+      const textBounds = getTextEntityBounds(entity);
+      if (!textBounds) return;
+      includePoint(textBounds.minX, textBounds.minY);
+      includePoint(textBounds.maxX, textBounds.maxY);
       return;
     }
 
@@ -739,8 +1493,14 @@ function getDocumentGeometryBounds() {
         entity.dimensionType === "angle"
       ) {
         const displayRadius = entity.radius + 0.3 / viewState.zoom;
-        includePoint(entity.centerX - displayRadius, entity.centerY - displayRadius);
-        includePoint(entity.centerX + displayRadius, entity.centerY + displayRadius);
+        includePoint(
+          entity.centerX - displayRadius,
+          entity.centerY - displayRadius,
+        );
+        includePoint(
+          entity.centerX + displayRadius,
+          entity.centerY + displayRadius,
+        );
       }
       return;
     }
@@ -842,8 +1602,7 @@ function getViewportScrollMetrics() {
   };
   horizontal.enabled =
     horizontal.maxCenter - horizontal.minCenter > GEOMETRY_EPSILON;
-  vertical.enabled =
-    vertical.maxCenter - vertical.minCenter > GEOMETRY_EPSILON;
+  vertical.enabled = vertical.maxCenter - vertical.minCenter > GEOMETRY_EPSILON;
 
   if (!horizontal.enabled) {
     horizontal.minCenter = ORIGIN.x;
@@ -901,22 +1660,19 @@ function updateCadScrollbarUi(metrics) {
     }
 
     const centerRange = axisMetrics.maxCenter - axisMetrics.minCenter;
-    let ratio =
-      (definition.center - axisMetrics.minCenter) / centerRange;
+    let ratio = (definition.center - axisMetrics.minCenter) / centerRange;
     if (definition.axis === "vertical") ratio = 1 - ratio;
     ratio = clampViewportValue(ratio, 0, 1);
     const thumbSize = Math.min(
       definition.trackSize,
       Math.max(
         20,
-        definition.trackSize *
-          (axisMetrics.viewSize / axisMetrics.contentSize),
+        definition.trackSize * (axisMetrics.viewSize / axisMetrics.contentSize),
       ),
     );
     const thumbPosition = ratio * (definition.trackSize - thumbSize);
     definition.thumb.style[definition.sizeProperty] = `${thumbSize}px`;
-    definition.thumb.style[definition.positionProperty] =
-      `${thumbPosition}px`;
+    definition.thumb.style[definition.positionProperty] = `${thumbPosition}px`;
     definition.track.setAttribute(
       "aria-valuenow",
       String(Math.round(ratio * 100)),
@@ -924,7 +1680,38 @@ function updateCadScrollbarUi(metrics) {
   });
 }
 
+function syncIsometricViewport() {
+  const displayView = isometricViewState.displayView;
+  if (!displayView) return;
+  const { cosYaw, sinYaw, cosPitch, sinPitch } =
+    getIsometricProjectionComponents();
+  worldLayer.setAttribute(
+    "transform",
+    `matrix(${cosYaw} ${-sinYaw * sinPitch} ${-sinYaw} ${-cosYaw * sinPitch} 0 0)`,
+  );
+
+  const xMin = displayView.centerX - displayView.viewWidth / 2;
+  const xMax = displayView.centerX + displayView.viewWidth / 2;
+  const yMin = displayView.centerY - displayView.viewHeight / 2;
+  const yMax = displayView.centerY + displayView.viewHeight / 2;
+  VIEW.xMin = xMin;
+  VIEW.xMax = xMax;
+  VIEW.yMin = yMin;
+  VIEW.yMax = yMax;
+  cadCanvas.setAttribute(
+    "viewBox",
+    `${xMin} ${-yMax} ${displayView.viewWidth} ${displayView.viewHeight}`,
+  );
+  const sourceBounds = getIsometricSourceViewportBounds(displayView);
+  if (sourceBounds) drawAxesAndTicks(sourceBounds);
+  setIsometricScrollbarsDisabled(displayView);
+}
+
 function syncViewportToDocument() {
+  if (isometricViewState.active && isometricViewState.displayView) {
+    syncIsometricViewport();
+    return;
+  }
   if (
     !Number.isFinite(viewState.viewWidth) ||
     !Number.isFinite(viewState.viewHeight) ||
@@ -1003,6 +1790,1320 @@ function getFitViewParameters(bounds, pixelWidth, pixelHeight) {
   };
 }
 
+function getIsometricProjectionComponents() {
+  return {
+    cosYaw: Math.cos(isometricViewState.yaw),
+    sinYaw: Math.sin(isometricViewState.yaw),
+    cosPitch: Math.cos(isometricViewState.pitch),
+    sinPitch: Math.sin(isometricViewState.pitch),
+  };
+}
+
+function projectWorldPointToIsometric(point) {
+  const { cosYaw, sinYaw, cosPitch, sinPitch } =
+    getIsometricProjectionComponents();
+  const z = Number.isFinite(point.z) ? point.z : 0;
+  const horizontalDepth = point.x * sinYaw + point.y * cosYaw;
+  return {
+    x: point.x * cosYaw - point.y * sinYaw,
+    y: z * cosPitch + horizontalDepth * sinPitch,
+    depth: -horizontalDepth * cosPitch + z * sinPitch,
+  };
+}
+
+function unprojectIsometricPoint(point) {
+  const { cosYaw, sinYaw, sinPitch } =
+    getIsometricProjectionComponents();
+  const minimumPitchScale = 0.035;
+  const safeSinPitch =
+    Math.abs(sinPitch) < minimumPitchScale
+      ? Math.sign(sinPitch || 1) * minimumPitchScale
+      : sinPitch;
+  const horizontalDepth = point.y / safeSinPitch;
+  return {
+    x: point.x * cosYaw + horizontalDepth * sinYaw,
+    y: -point.x * sinYaw + horizontalDepth * cosYaw,
+    z: 0,
+  };
+}
+
+function createEmptyBounds() {
+  return {
+    minX: Infinity,
+    minY: Infinity,
+    maxX: -Infinity,
+    maxY: -Infinity,
+  };
+}
+
+function includePointInBounds(bounds, point) {
+  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
+  bounds.minX = Math.min(bounds.minX, point.x);
+  bounds.minY = Math.min(bounds.minY, point.y);
+  bounds.maxX = Math.max(bounds.maxX, point.x);
+  bounds.maxY = Math.max(bounds.maxY, point.y);
+}
+
+function finalizeBounds(bounds) {
+  return Number.isFinite(bounds.minX) ? bounds : null;
+}
+
+function rotateModelPointAroundAxes(point, rotation) {
+  let { x, y, z } = point;
+  const cosX = Math.cos(rotation.x);
+  const sinX = Math.sin(rotation.x);
+  [y, z] = [y * cosX - z * sinX, y * sinX + z * cosX];
+  const cosY = Math.cos(rotation.y);
+  const sinY = Math.sin(rotation.y);
+  [x, z] = [x * cosY + z * sinY, -x * sinY + z * cosY];
+  const cosZ = Math.cos(rotation.z);
+  const sinZ = Math.sin(rotation.z);
+  [x, y] = [x * cosZ - y * sinZ, x * sinZ + y * cosZ];
+  return { x, y, z };
+}
+
+function transformSolidVertex(solid, vertex) {
+  return transformPointByMatrix4(normalizeSolidTransform(solid).matrix, vertex);
+}
+
+function getSolidLocalVertices(solid) {
+  const vertices = solid.topology?.vertices ?? solid.geometry?.vertices;
+  return Array.isArray(vertices) ? vertices : [];
+}
+
+function getSolidWorldVertices(solid) {
+  return getSolidLocalVertices(solid)
+    .filter(
+      (vertex) =>
+        Number.isFinite(vertex?.x) &&
+        Number.isFinite(vertex?.y) &&
+        Number.isFinite(vertex?.z),
+    )
+    .map((vertex) => transformSolidVertex(solid, vertex));
+}
+
+function subtractVector3(first, second) {
+  return {
+    x: first.x - second.x,
+    y: first.y - second.y,
+    z: first.z - second.z,
+  };
+}
+
+function crossVector3(first, second) {
+  return {
+    x: first.y * second.z - first.z * second.y,
+    y: first.z * second.x - first.x * second.z,
+    z: first.x * second.y - first.y * second.x,
+  };
+}
+
+function dotVector3(first, second) {
+  return first.x * second.x + first.y * second.y + first.z * second.z;
+}
+
+function getVector3Length(vector) {
+  return Math.hypot(vector.x, vector.y, vector.z);
+}
+
+function getNormalizedVector3(vector) {
+  const length = getVector3Length(vector);
+  if (!Number.isFinite(length) || length <= GEOMETRY_EPSILON) return null;
+  return {
+    x: vector.x / length,
+    y: vector.y / length,
+    z: vector.z / length,
+  };
+}
+
+function getPolygonNormal(vertices) {
+  if (vertices.length < 3) return null;
+  return getNormalizedVector3(
+    crossVector3(
+      subtractVector3(vertices[1], vertices[0]),
+      subtractVector3(vertices[2], vertices[0]),
+    ),
+  );
+}
+
+function getPolyhedronSignedVolume(vertices, faces) {
+  const vertexById = new Map(vertices.map((vertex) => [vertex.id, vertex]));
+  let sixTimesVolume = 0;
+  faces.forEach((face) => {
+    const polygon = face.vertexIds.map((vertexId) => vertexById.get(vertexId));
+    for (let index = 1; index < polygon.length - 1; index += 1) {
+      sixTimesVolume += dotVector3(
+        polygon[0],
+        crossVector3(polygon[index], polygon[index + 1]),
+      );
+    }
+  });
+  return sixTimesVolume / 6;
+}
+
+function buildBoxSolid({
+  id,
+  layerId,
+  x,
+  y,
+  z,
+  length,
+  width,
+  height,
+  draftAngleDegrees,
+}) {
+  const inputValues = [x, y, z, length, width, height, draftAngleDegrees];
+  if (!inputValues.every(Number.isFinite)) {
+    throw new Error("Box values must all be finite numbers.");
+  }
+  if (length <= GEOMETRY_EPSILON) {
+    throw new Error("Box length must be greater than zero.");
+  }
+  if (width <= GEOMETRY_EPSILON) {
+    throw new Error("Box width must be greater than zero.");
+  }
+  if (height <= GEOMETRY_EPSILON) {
+    throw new Error("Box height must be greater than zero.");
+  }
+  if (Math.abs(draftAngleDegrees) >= 90) {
+    throw new Error("Draft angle must be greater than -90° and less than 90°.");
+  }
+
+  const draftRadians = (draftAngleDegrees * Math.PI) / 180;
+  const draftInset = height * Math.tan(draftRadians);
+  const topLength = length - 2 * draftInset;
+  const topWidth = width - 2 * draftInset;
+  if (!Number.isFinite(topLength) || !Number.isFinite(topWidth)) {
+    throw new Error("Draft angle produces non-finite top dimensions.");
+  }
+  if (topLength <= GEOMETRY_EPSILON || topWidth <= GEOMETRY_EPSILON) {
+    throw new Error(
+      "Draft angle collapses or inverts the top face; reduce the positive draft angle.",
+    );
+  }
+
+  const halfBottomLength = length / 2;
+  const halfBottomWidth = width / 2;
+  const halfTopLength = topLength / 2;
+  const halfTopWidth = topWidth / 2;
+  const topZ = z + height;
+  const vertices = [
+    { id: "v0", x: x - halfBottomLength, y: y - halfBottomWidth, z },
+    { id: "v1", x: x + halfBottomLength, y: y - halfBottomWidth, z },
+    { id: "v2", x: x + halfBottomLength, y: y + halfBottomWidth, z },
+    { id: "v3", x: x - halfBottomLength, y: y + halfBottomWidth, z },
+    { id: "v4", x: x - halfTopLength, y: y - halfTopWidth, z: topZ },
+    { id: "v5", x: x + halfTopLength, y: y - halfTopWidth, z: topZ },
+    { id: "v6", x: x + halfTopLength, y: y + halfTopWidth, z: topZ },
+    { id: "v7", x: x - halfTopLength, y: y + halfTopWidth, z: topZ },
+  ];
+  const faceSpecifications = [
+    { id: "bottom", name: "Bottom", vertexIds: ["v0", "v3", "v2", "v1"], edgeIds: ["e3", "e2", "e1", "e0"] },
+    { id: "top", name: "Top", vertexIds: ["v4", "v5", "v6", "v7"], edgeIds: ["e4", "e5", "e6", "e7"] },
+    { id: "front", name: "Front", vertexIds: ["v0", "v1", "v5", "v4"], edgeIds: ["e0", "e9", "e4", "e8"] },
+    { id: "right", name: "Right", vertexIds: ["v1", "v2", "v6", "v5"], edgeIds: ["e1", "e10", "e5", "e9"] },
+    { id: "back", name: "Back", vertexIds: ["v2", "v3", "v7", "v6"], edgeIds: ["e2", "e11", "e6", "e10"] },
+    { id: "left", name: "Left", vertexIds: ["v3", "v0", "v4", "v7"], edgeIds: ["e3", "e8", "e7", "e11"] },
+  ];
+  const vertexById = new Map(vertices.map((vertex) => [vertex.id, vertex]));
+  const faces = faceSpecifications.map((face) => {
+    const polygon = face.vertexIds.map((vertexId) => vertexById.get(vertexId));
+    const normal = getPolygonNormal(polygon);
+    if (!normal) throw new Error(`Box ${face.name.toLowerCase()} face is degenerate.`);
+    return {
+      ...face,
+      normal,
+      plane: {
+        point: { ...polygon[0] },
+        normal: { ...normal },
+      },
+    };
+  });
+  const edgeSpecifications = [
+    ["v0", "v1"], ["v1", "v2"], ["v2", "v3"], ["v3", "v0"],
+    ["v4", "v5"], ["v5", "v6"], ["v6", "v7"], ["v7", "v4"],
+    ["v0", "v4"], ["v1", "v5"], ["v2", "v6"], ["v3", "v7"],
+  ];
+  const edges = edgeSpecifications.map((vertexIds, index) => {
+    const edgeId = `e${index}`;
+    return {
+      id: edgeId,
+      vertexIds,
+      faceIds: faces
+        .filter((face) => face.edgeIds.includes(edgeId))
+        .map((face) => face.id),
+    };
+  });
+  if (edges.some((edge) => edge.faceIds.length !== 2)) {
+    throw new Error("Box topology is not closed.");
+  }
+  const signedVolume = getPolyhedronSignedVolume(vertices, faces);
+  if (!Number.isFinite(signedVolume) || signedVolume <= GEOMETRY_EPSILON) {
+    throw new Error("Box topology has zero or inverted volume.");
+  }
+
+  return {
+    id,
+    type: "solid",
+    kind: "Box",
+    layerId,
+    definition: {
+      type: "box",
+      position: { x, y, z },
+      dimensions: { length, width, height },
+      draftAngleDegrees,
+      topDimensions: { length: topLength, width: topWidth },
+    },
+    topology: {
+      vertices,
+      edges,
+      faces,
+      closed: true,
+      eulerCharacteristic: vertices.length - edges.length + faces.length,
+      signedVolume,
+    },
+    transform: getDefaultSolidTransform(),
+  };
+}
+
+function getSolidFaceRecords(solid) {
+  const localVertices = getSolidLocalVertices(solid);
+  const vertexIndexById = new Map(
+    localVertices.map((vertex, index) => [vertex.id ?? index, index]),
+  );
+  if (Array.isArray(solid.topology?.faces)) {
+    return solid.topology.faces.map((face, faceIndex) => ({
+      id: face.id ?? `face-${faceIndex}`,
+      name: face.name ?? `Face ${faceIndex + 1}`,
+      faceIndex,
+      vertexIndices: face.vertexIds.map((vertexId) => vertexIndexById.get(vertexId)),
+    }));
+  }
+  return Array.isArray(solid.geometry?.faces)
+    ? solid.geometry.faces.map((face, faceIndex) => ({
+        id: `face-${faceIndex}`,
+        name: `Face ${faceIndex + 1}`,
+        faceIndex,
+        vertexIndices: face,
+      }))
+    : [];
+}
+
+function getModelBounds(solids = documentModel.model3d.solids) {
+  const bounds = {
+    minX: Infinity,
+    minY: Infinity,
+    minZ: Infinity,
+    maxX: -Infinity,
+    maxY: -Infinity,
+    maxZ: -Infinity,
+  };
+  solids.forEach((solid) => {
+    if (!isEntityLayerVisible(solid)) return;
+    getSolidWorldVertices(solid).forEach((vertex) => {
+      bounds.minX = Math.min(bounds.minX, vertex.x);
+      bounds.minY = Math.min(bounds.minY, vertex.y);
+      bounds.minZ = Math.min(bounds.minZ, vertex.z);
+      bounds.maxX = Math.max(bounds.maxX, vertex.x);
+      bounds.maxY = Math.max(bounds.maxY, vertex.y);
+      bounds.maxZ = Math.max(bounds.maxZ, vertex.z);
+    });
+  });
+  return Number.isFinite(bounds.minX) ? bounds : null;
+}
+
+function getModelBoundsCenter(bounds) {
+  return bounds
+    ? {
+        x: (bounds.minX + bounds.maxX) / 2,
+        y: (bounds.minY + bounds.maxY) / 2,
+        z: (bounds.minZ + bounds.maxZ) / 2,
+      }
+    : null;
+}
+
+function getIsometricGeometryBounds() {
+  const bounds = createEmptyBounds();
+  const includeWorldPoint = (point) => {
+    if (!point) return;
+    includePointInBounds(bounds, projectWorldPointToIsometric(point));
+  };
+  const includeCircleSamples = (centerPoint, radius, startAngle, sweep) => {
+    if (!centerPoint || !Number.isFinite(radius)) return;
+    const sampleCount = Math.max(32, Math.ceil((sweep / (Math.PI * 2)) * 96));
+    for (let index = 0; index <= sampleCount; index += 1) {
+      const angle = startAngle + (sweep * index) / sampleCount;
+      includeWorldPoint({
+        x: centerPoint.x + Math.cos(angle) * radius,
+        y: centerPoint.y + Math.sin(angle) * radius,
+      });
+    }
+  };
+
+  documentModel.entities.forEach((entity) => {
+    if (!isEntityLayerVisible(entity)) return;
+    if (entity.type === "point") {
+      if (!entity.isConstruction) includeWorldPoint(entity);
+      return;
+    }
+    if (entity.type === "line") {
+      const endpoints = getLineEndpointPair(entity);
+      if (!endpoints) return;
+      includeWorldPoint(endpoints.startPoint);
+      includeWorldPoint(endpoints.endPoint);
+      return;
+    }
+    if (entity.type === "circle") {
+      includeCircleSamples(
+        getPointById(entity.centerPointId),
+        entity.radius,
+        0,
+        Math.PI * 2,
+      );
+      return;
+    }
+    if (entity.type === "arc") {
+      const centerPoint = getPointById(entity.centerPointId);
+      const startPoint = getPointById(entity.startPointId);
+      const endPoint = getPointById(entity.endPointId);
+      if (!centerPoint || !startPoint || !endPoint) return;
+      const startAngle = Math.atan2(
+        startPoint.y - centerPoint.y,
+        startPoint.x - centerPoint.x,
+      );
+      const endAngle = Math.atan2(
+        endPoint.y - centerPoint.y,
+        endPoint.x - centerPoint.x,
+      );
+      includeCircleSamples(
+        centerPoint,
+        entity.radius,
+        startAngle,
+        getCounterClockwiseSweep(startAngle, endAngle),
+      );
+      return;
+    }
+    if (entity.type === "text") {
+      const textBounds = getTextEntityBounds(entity);
+      if (!textBounds) return;
+      [
+        { x: textBounds.minX, y: textBounds.minY },
+        { x: textBounds.maxX, y: textBounds.minY },
+        { x: textBounds.maxX, y: textBounds.maxY },
+        { x: textBounds.minX, y: textBounds.maxY },
+      ].forEach(includeWorldPoint);
+      return;
+    }
+    if (entity.type !== "dimension") return;
+    if (entity.dimensionType === "linear") {
+      [
+        { x: entity.startX, y: entity.startY },
+        { x: entity.endX, y: entity.endY },
+        { x: entity.dimensionStartX, y: entity.dimensionStartY },
+        { x: entity.dimensionEndX, y: entity.dimensionEndY },
+      ].forEach(includeWorldPoint);
+      return;
+    }
+    if (
+      entity.dimensionType === "radius" ||
+      entity.dimensionType === "diameter" ||
+      entity.dimensionType === "angle"
+    ) {
+      includeCircleSamples(
+        { x: entity.centerX, y: entity.centerY },
+        entity.radius + 0.3 / Math.max(viewState.zoom, 1e-6),
+        0,
+        Math.PI * 2,
+      );
+    }
+  });
+
+  documentModel.model3d.solids.forEach((solid) => {
+    if (!isEntityLayerVisible(solid)) return;
+    getSolidWorldVertices(solid).forEach(includeWorldPoint);
+  });
+
+  return finalizeBounds(bounds);
+}
+
+function getIsometricHomeBounds() {
+  const baseView =
+    getCanvasBaseViewSize(cadCanvas.clientWidth, cadCanvas.clientHeight) ??
+    BASE_VIEW;
+  const bounds = createEmptyBounds();
+  [
+    { x: -baseView.width / 2, y: -baseView.height / 2 },
+    { x: -baseView.width / 2, y: baseView.height / 2 },
+    { x: baseView.width / 2, y: -baseView.height / 2 },
+    { x: baseView.width / 2, y: baseView.height / 2 },
+  ].forEach((point) =>
+    includePointInBounds(bounds, projectWorldPointToIsometric(point)),
+  );
+  return finalizeBounds(bounds);
+}
+
+function getIsometricDisplayView() {
+  const geometryBounds = getIsometricGeometryBounds();
+  const bounds = geometryBounds ?? getIsometricHomeBounds();
+  const baseView = getCanvasBaseViewSize(
+    cadCanvas.clientWidth,
+    cadCanvas.clientHeight,
+  );
+  const fittedView = getFitViewParameters(
+    bounds,
+    cadCanvas.clientWidth,
+    cadCanvas.clientHeight,
+  );
+  if (!baseView || !fittedView) return null;
+  return {
+    centerX: fittedView.centerX,
+    centerY: fittedView.centerY,
+    zoom: fittedView.zoom,
+    viewWidth: baseView.width / fittedView.zoom,
+    viewHeight: baseView.height / fittedView.zoom,
+    hasGeometry: geometryBounds !== null,
+  };
+}
+
+function getIsometricSourceViewportBounds(displayView) {
+  const bounds = createEmptyBounds();
+  const xMin = displayView.centerX - displayView.viewWidth / 2;
+  const xMax = displayView.centerX + displayView.viewWidth / 2;
+  const yMin = displayView.centerY - displayView.viewHeight / 2;
+  const yMax = displayView.centerY + displayView.viewHeight / 2;
+  [
+    { x: xMin, y: yMin },
+    { x: xMin, y: yMax },
+    { x: xMax, y: yMin },
+    { x: xMax, y: yMax },
+  ].forEach((point) =>
+    includePointInBounds(bounds, unprojectIsometricPoint(point)),
+  );
+  return finalizeBounds(bounds);
+}
+
+function setIsometricScrollbarsDisabled(displayView) {
+  const horizontal = {
+    enabled: false,
+    minCenter: displayView.centerX,
+    maxCenter: displayView.centerX,
+    contentSize: displayView.viewWidth,
+    viewSize: displayView.viewWidth,
+  };
+  const vertical = {
+    enabled: false,
+    minCenter: displayView.centerY,
+    maxCenter: displayView.centerY,
+    contentSize: displayView.viewHeight,
+    viewSize: displayView.viewHeight,
+  };
+  viewportScrollState.horizontal = horizontal;
+  viewportScrollState.vertical = vertical;
+  updateCadScrollbarUi({ horizontal, vertical });
+}
+
+function refreshIsometricView({ refit = false } = {}) {
+  if (!isometricViewState.active) return false;
+  const baseView = getCanvasBaseViewSize(
+    cadCanvas.clientWidth,
+    cadCanvas.clientHeight,
+  );
+  if (!baseView) return false;
+
+  let displayView = isometricViewState.displayView;
+  if (refit || !displayView) {
+    for (let pass = 0; pass < 3; pass += 1) {
+      displayView = getIsometricDisplayView();
+      if (!displayView) return false;
+      viewState.zoom = displayView.zoom;
+    }
+  } else {
+    const geometryBounds = getIsometricGeometryBounds();
+    displayView = {
+      ...displayView,
+      viewWidth: baseView.width / displayView.zoom,
+      viewHeight: baseView.height / displayView.zoom,
+      hasGeometry: geometryBounds !== null,
+    };
+  }
+
+  isometricViewState.displayView = displayView;
+  isometricViewState.hasGeometry = displayView.hasGeometry;
+  viewState.zoom = displayView.zoom;
+  viewState.viewWidth = displayView.viewWidth;
+  viewState.viewHeight = displayView.viewHeight;
+  renderEntities();
+  zoomStatus.textContent = `3D: ${Math.round(displayView.zoom * 100)}%`;
+  return true;
+}
+
+function setWorkspaceMode(mode) {
+  const nextMode = mode === "3d" ? "3d" : "2d";
+  const modelMode = nextMode === "3d";
+  workspaceState.mode = nextMode;
+  document.body.dataset.workspace = nextMode;
+
+  drawMenuItem.hidden = modelMode;
+  modelMenuItem.hidden = !modelMode;
+  drawMenuItem.classList.remove("is-hover-retained", "is-dismissed");
+  modelMenuItem.classList.remove("is-hover-retained", "is-dismissed");
+  mirrorCopyInput.checked = false;
+  if (modelMode) {
+    selectionState.mode = null;
+    selectionState.hoveredEntityId = null;
+    selectionState.pickCycle = null;
+    resetChainSelectionPreview();
+    cadCanvas.classList.remove("select-single");
+  }
+
+  trimExtendMenu.hidden = modelMode;
+  offsetMenu.disabled = modelMode;
+  offsetMenu.title = modelMode
+    ? "Face and surface Offset is planned for the 3D workspace."
+    : "";
+  translateByPointsMenu.disabled = modelMode;
+  translateByPointsMenu.title = modelMode
+    ? "Translate by 3D reference points is planned."
+    : "";
+
+  mirrorXAxisLabel.textContent = modelMode ? "XY Plane" : "X Axis";
+  mirrorYAxisLabel.textContent = modelMode ? "XZ Plane" : "Y Axis";
+  mirrorBothAxesLabel.textContent = modelMode ? "YZ Plane" : "X and Y Axis";
+  mirrorXAxisMenu.title = modelMode
+    ? "Reflect across the XY plane; reverse Z."
+    : "";
+  mirrorYAxisMenu.title = modelMode
+    ? "Reflect across the XZ plane; reverse Y."
+    : "";
+  mirrorBothAxesMenu.title = modelMode
+    ? "Reflect across the YZ plane; reverse X."
+    : "";
+
+  [
+    selectChainMenu,
+    selectLayerSubmenu,
+    selectPointsMenu,
+    selectLinesMenu,
+    selectArcsMenu,
+    selectDimensionsMenu,
+  ].forEach((element) => {
+    element.hidden = modelMode;
+  });
+
+  [
+    linearDimensionMenu,
+    diameterDimensionMenu,
+    radiusDimensionMenu,
+    angleDimensionMenu,
+  ].forEach((button) => {
+    button.hidden = modelMode;
+  });
+  modelDimensionPlaceholder.hidden = !modelMode;
+  updateTrihedronMenuState();
+  trihedronLayer.toggleAttribute(
+    "hidden",
+    !modelMode || !trihedronState.visible,
+  );
+
+  windowZoomMenu.disabled = modelMode;
+  windowZoomMenu.title = modelMode
+    ? "Left drag performs 3D Window or Crossing selection."
+    : "";
+  quickZoomWindowButton.disabled = modelMode;
+  quickZoomWindowButton.title = modelMode
+    ? "3D left drag is reserved for Window or Crossing selection"
+    : "Zoom Window";
+
+  translateZField.hidden = !modelMode;
+  rotatePivotOptions.hidden = modelMode;
+  rotatePivotReadout.closest(".rotate-pivot-readout").hidden = modelMode;
+  rotateAxisOptions.hidden = !modelMode;
+
+  modelMenuItem.querySelectorAll("button:disabled").forEach((button) => {
+    button.title = "Planned 3D modeling command";
+  });
+  updateEditMenuState();
+}
+
+function enterIsometricView() {
+  cancelGeometryToolsForLayerChange();
+  if (!aboutWindow.hidden) closeAboutWindow(null);
+  isometricViewState.previousView = {
+    zoom: viewState.zoom,
+    centerX: viewState.centerX,
+    centerY: viewState.centerY,
+    viewWidth: viewState.viewWidth,
+    viewHeight: viewState.viewHeight,
+    navigationAnchor: viewState.navigationAnchor
+      ? { ...viewState.navigationAnchor }
+      : null,
+    zoomStatus: zoomStatus.textContent,
+  };
+  isometricViewState.active = true;
+  isometricViewState.yaw = ISOMETRIC_YAW_RADIANS;
+  isometricViewState.pitch = ISOMETRIC_PITCH_RADIANS;
+  isometricViewState.displayView = null;
+  isometricViewState.pivotWorld = getIsometricOrbitPivotWorld();
+  setWorkspaceMode("3d");
+  cadCanvas.classList.add("isometric-view");
+  quickIsometricButton.classList.add("is-active");
+  quickIsometricButton.setAttribute("aria-pressed", "true");
+  quickIsometricButton.setAttribute("aria-label", "Return to 2D view");
+  quickIsometricButton.title = "Return to 2D";
+
+  if (!refreshIsometricView({ refit: true })) {
+    exitIsometricView(
+      "Isometric view is unavailable until the drawing canvas has a size.",
+    );
+    return;
+  }
+  commandStatus.textContent = isometricViewState.hasGeometry
+    ? "3D: Left click selects, left drag window/crossing selects, right drag orbits, middle drag pans, and the wheel zooms."
+    : "3D: Home view. Right drag orbits, middle drag pans, and the wheel zooms.";
+}
+
+function exitIsometricView(
+  statusMessage = "Returned to the previous 2D view.",
+) {
+  cancelGeometryToolsForLayerChange();
+  const previousView = isometricViewState.previousView;
+  cancelCanvasNavigation(null, { restore: false });
+  isometricViewState.active = false;
+  setWorkspaceMode("2d");
+  isometricViewState.previousView = null;
+  isometricViewState.displayView = null;
+  isometricViewState.hasGeometry = false;
+  isometricViewState.yaw = ISOMETRIC_YAW_RADIANS;
+  isometricViewState.pitch = ISOMETRIC_PITCH_RADIANS;
+  isometricViewState.pivotWorld = { x: 0, y: 0, z: 0 };
+  cadCanvas.classList.remove(
+    "isometric-view",
+    "is-orbiting",
+    "is-panning",
+    "is-window-selecting",
+  );
+  quickIsometricButton.classList.remove("is-active");
+  quickIsometricButton.setAttribute("aria-pressed", "false");
+  quickIsometricButton.setAttribute("aria-label", "Enter 3D workspace");
+  quickIsometricButton.title = "3D Workspace";
+  worldLayer.setAttribute("transform", "scale(1 -1)");
+
+  if (previousView) {
+    viewState.zoom = previousView.zoom;
+    viewState.centerX = previousView.centerX;
+    viewState.centerY = previousView.centerY;
+    viewState.viewWidth = previousView.viewWidth;
+    viewState.viewHeight = previousView.viewHeight;
+    viewState.navigationAnchor = previousView.navigationAnchor;
+    zoomStatus.textContent = previousView.zoomStatus;
+  }
+  renderEntities();
+  commandStatus.textContent = statusMessage;
+}
+
+function toggleIsometricView() {
+  if (isometricViewState.active) {
+    exitIsometricView();
+    return;
+  }
+  enterIsometricView();
+}
+
+function includeEntityInNavigationBounds(bounds, entity) {
+  const include = (point) => includePointInBounds(bounds, point);
+  if (entity.type === "point") {
+    if (!entity.isConstruction) include(entity);
+    return;
+  }
+  if (entity.type === "line") {
+    const endpoints = getLineEndpointPair(entity);
+    if (!endpoints) return;
+    include(endpoints.startPoint);
+    include(endpoints.endPoint);
+    return;
+  }
+  if (entity.type === "circle" || entity.type === "arc") {
+    const center = getPointById(entity.centerPointId);
+    if (!center || !Number.isFinite(entity.radius)) return;
+    include({ x: center.x - entity.radius, y: center.y - entity.radius });
+    include({ x: center.x + entity.radius, y: center.y + entity.radius });
+    return;
+  }
+  if (entity.type === "text") {
+    const textBounds = getTextEntityBounds(entity);
+    if (!textBounds) return;
+    include({ x: textBounds.minX, y: textBounds.minY });
+    include({ x: textBounds.maxX, y: textBounds.maxY });
+    return;
+  }
+  if (entity.type !== "dimension") return;
+  if (entity.dimensionType === "linear") {
+    include({ x: entity.startX, y: entity.startY });
+    include({ x: entity.endX, y: entity.endY });
+    include({ x: entity.dimensionStartX, y: entity.dimensionStartY });
+    include({ x: entity.dimensionEndX, y: entity.dimensionEndY });
+    return;
+  }
+  if (
+    entity.dimensionType === "radius" ||
+    entity.dimensionType === "diameter" ||
+    entity.dimensionType === "angle"
+  ) {
+    include({
+      x: entity.centerX - entity.radius,
+      y: entity.centerY - entity.radius,
+    });
+    include({
+      x: entity.centerX + entity.radius,
+      y: entity.centerY + entity.radius,
+    });
+  }
+}
+
+function getIsometricOrbitPivotWorld() {
+  const selectedSolids = getSelectedModelSolids();
+  const selectedModelCenter = getModelBoundsCenter(
+    getModelBounds(selectedSolids),
+  );
+  if (selectedModelCenter) return selectedModelCenter;
+
+  const selectedBounds = createEmptyBounds();
+  documentModel.entities.forEach((entity) => {
+    if (
+      selectionState.selectedEntityIds.has(entity.id) &&
+      isEntityLayerVisible(entity)
+    ) {
+      includeEntityInNavigationBounds(selectedBounds, entity);
+    }
+  });
+  const selected = finalizeBounds(selectedBounds);
+  if (selected) {
+    return {
+      x: (selected.minX + selected.maxX) / 2,
+      y: (selected.minY + selected.maxY) / 2,
+      z: 0,
+    };
+  }
+
+  const modelCenter = getModelBoundsCenter(getModelBounds());
+  const drawingBounds = getDocumentGeometryBounds();
+  if (modelCenter && !drawingBounds) return modelCenter;
+  if (!modelCenter && drawingBounds) {
+    return {
+      x: (drawingBounds.minX + drawingBounds.maxX) / 2,
+      y: (drawingBounds.minY + drawingBounds.maxY) / 2,
+      z: 0,
+    };
+  }
+  if (modelCenter && drawingBounds) {
+    const modelBounds = getModelBounds();
+    return {
+      x:
+        (Math.min(modelBounds.minX, drawingBounds.minX) +
+          Math.max(modelBounds.maxX, drawingBounds.maxX)) /
+        2,
+      y:
+        (Math.min(modelBounds.minY, drawingBounds.minY) +
+          Math.max(modelBounds.maxY, drawingBounds.maxY)) /
+        2,
+      z: (modelBounds.minZ + modelBounds.maxZ) / 2,
+    };
+  }
+  return { x: 0, y: 0, z: 0 };
+}
+
+function getCanvasSelectionEntityId(target) {
+  const entityElement = target?.closest?.(
+    ".point-entity, .line-entity, .circle-entity, .arc-entity, .text-entity, .dimension-entity, .face-entity, .solid-entity",
+  );
+  if (!entityElement) return null;
+  const entityId = Number(entityElement.dataset.entityId);
+  const entity = getEntityById(entityId);
+  return entity &&
+    isCurrentLayerEditable() &&
+    isEntityOnCurrentLayer(entity) &&
+    isEntityLayerVisible(entity) &&
+    (entity.type !== "point" || !entity.isConstruction)
+    ? entityId
+    : null;
+}
+
+function getCanvasModelSelectionTarget(target) {
+  const faceElement = target?.closest?.(".solid-face[data-solid-id]");
+  if (faceElement) {
+    const solidId = Number(faceElement.dataset.solidId);
+    const faceIndex = Number(faceElement.dataset.faceIndex);
+    const faceId = faceElement.dataset.faceId ?? `face-${faceIndex}`;
+    const solid = getSolidById(solidId);
+    if (
+      solid &&
+      isCurrentLayerEditable() &&
+      isEntityOnCurrentLayer(solid) &&
+      isEntityLayerVisible(solid)
+    ) {
+      return { solidId, faceIndex, faceId };
+    }
+  }
+  const entityId = getCanvasSelectionEntityId(target);
+  return entityId === null ? null : { entityId };
+}
+
+function setSelectionMarquee(startX, startY, currentX, currentY) {
+  const areaBounds = drawingArea.getBoundingClientRect();
+  const left = Math.min(startX, currentX);
+  const top = Math.min(startY, currentY);
+  const width = Math.abs(currentX - startX);
+  const height = Math.abs(currentY - startY);
+  const crossing = currentX < startX;
+  cadSelectionMarquee.hidden = false;
+  cadSelectionMarquee.style.left = `${left - areaBounds.left}px`;
+  cadSelectionMarquee.style.top = `${top - areaBounds.top}px`;
+  cadSelectionMarquee.style.width = `${width}px`;
+  cadSelectionMarquee.style.height = `${height}px`;
+  cadSelectionMarquee.classList.toggle("is-crossing", crossing);
+  return {
+    left,
+    top,
+    right: left + width,
+    bottom: top + height,
+    width,
+    height,
+    crossing,
+  };
+}
+
+function hideSelectionMarquee() {
+  cadSelectionMarquee.hidden = true;
+  cadSelectionMarquee.classList.remove("is-crossing");
+}
+
+function selectIsometricTarget(targetSelection) {
+  if (targetSelection === null) {
+    const previousCount =
+      selectionState.selectedEntityIds.size +
+      modelSelectionState.selectedSolidIds.size;
+    selectionState.selectedEntityId = null;
+    selectionState.hoveredEntityId = null;
+    selectionState.pickCycle = null;
+    clearModelSelection();
+    renderEntities();
+    commandStatus.textContent = previousCount
+      ? "3D selection cleared."
+      : "3D: Click an entity to select it.";
+    return;
+  }
+  if (Number.isInteger(targetSelection.solidId)) {
+    const previousCount = modelSelectionState.selectedSolidIds.size;
+    modelSelectionState.selectedSolidIds.add(targetSelection.solidId);
+    modelSelectionState.selectedFace = {
+      solidId: targetSelection.solidId,
+      faceIndex: targetSelection.faceIndex,
+      faceId: targetSelection.faceId,
+    };
+    const solid = getSolidById(targetSelection.solidId);
+    const faceName =
+      getSolidFaceRecords(solid).find(
+        (face) => face.id === targetSelection.faceId,
+      )?.name ?? `Face ${targetSelection.faceIndex + 1}`;
+    renderEntities();
+    commandStatus.textContent =
+      `${modelSelectionState.selectedSolidIds.size > previousCount ? "Selected" : "Kept selected"} ` +
+      `${getSolidDescription(solid)}, ${faceName.toLowerCase()} face; ` +
+      `${modelSelectionState.selectedSolidIds.size} solid ` +
+      `${modelSelectionState.selectedSolidIds.size === 1 ? "selection" : "selections"}.`;
+    return;
+  }
+  const entityId = targetSelection.entityId;
+  const previousCount = selectionState.selectedEntityIds.size;
+  addEntityIdsToSelection([entityId]);
+  selectionState.hoveredEntityId = null;
+  selectionState.pickCycle = null;
+  renderEntities();
+  const entity = getEntityById(entityId);
+  commandStatus.textContent =
+    `${selectionState.selectedEntityIds.size > previousCount ? "Selected" : "Kept selected"} ` +
+    `${entity?.type ?? "entity"} ${entityId}; ${selectionState.selectedEntityIds.size} total.`;
+}
+
+function selectEntitiesInScreenRectangle(screenBounds) {
+  const selectedIds = [];
+  const seenIds = new Set();
+  entityLayer.querySelectorAll("[data-entity-id]").forEach((element) => {
+    const entityId = Number(element.dataset.entityId);
+    if (seenIds.has(entityId)) return;
+    seenIds.add(entityId);
+    const entity = getEntityById(entityId);
+    if (
+      !entity ||
+      !isCurrentLayerEditable() ||
+      !isEntityOnCurrentLayer(entity) ||
+      !isEntityLayerVisible(entity) ||
+      (entity.type === "point" && entity.isConstruction)
+    ) {
+      return;
+    }
+    const bounds = element.getBoundingClientRect();
+    const intersects =
+      bounds.right >= screenBounds.left &&
+      bounds.left <= screenBounds.right &&
+      bounds.bottom >= screenBounds.top &&
+      bounds.top <= screenBounds.bottom;
+    const enclosed =
+      bounds.left >= screenBounds.left &&
+      bounds.right <= screenBounds.right &&
+      bounds.top >= screenBounds.top &&
+      bounds.bottom <= screenBounds.bottom;
+    if (screenBounds.crossing ? intersects : enclosed) selectedIds.push(entityId);
+  });
+
+  const solidBoundsById = new Map();
+  modelLayer.querySelectorAll(".solid-face[data-solid-id]").forEach((element) => {
+    const solidId = Number(element.dataset.solidId);
+    const solid = getSolidById(solidId);
+    if (
+      !solid ||
+      !isCurrentLayerEditable() ||
+      !isEntityOnCurrentLayer(solid) ||
+      !isEntityLayerVisible(solid)
+    ) {
+      return;
+    }
+    const bounds = element.getBoundingClientRect();
+    const accumulated = solidBoundsById.get(solidId) ?? {
+      left: Infinity,
+      top: Infinity,
+      right: -Infinity,
+      bottom: -Infinity,
+    };
+    accumulated.left = Math.min(accumulated.left, bounds.left);
+    accumulated.top = Math.min(accumulated.top, bounds.top);
+    accumulated.right = Math.max(accumulated.right, bounds.right);
+    accumulated.bottom = Math.max(accumulated.bottom, bounds.bottom);
+    solidBoundsById.set(solidId, accumulated);
+  });
+  const selectedSolidIds = [];
+  solidBoundsById.forEach((bounds, solidId) => {
+    const intersects =
+      bounds.right >= screenBounds.left &&
+      bounds.left <= screenBounds.right &&
+      bounds.bottom >= screenBounds.top &&
+      bounds.top <= screenBounds.bottom;
+    const enclosed =
+      bounds.left >= screenBounds.left &&
+      bounds.right <= screenBounds.right &&
+      bounds.top >= screenBounds.top &&
+      bounds.bottom <= screenBounds.bottom;
+    if (screenBounds.crossing ? intersects : enclosed) {
+      selectedSolidIds.push(solidId);
+    }
+  });
+
+  if (selectedIds.length) {
+    addEntityIdsToSelection(selectedIds);
+    selectionState.hoveredEntityId = null;
+    selectionState.pickCycle = null;
+  }
+  selectedSolidIds.forEach((solidId) =>
+    modelSelectionState.selectedSolidIds.add(solidId),
+  );
+  if (selectedIds.length || selectedSolidIds.length) renderEntities();
+  const selectionKind = screenBounds.crossing ? "Crossing" : "Window";
+  const selectedCount = selectedIds.length + selectedSolidIds.length;
+  const totalCount =
+    selectionState.selectedEntityIds.size +
+    modelSelectionState.selectedSolidIds.size;
+  commandStatus.textContent = selectedCount
+    ? `${selectionKind} selected ${selectedCount} ${selectedCount === 1 ? "item" : "items"}; ${totalCount} total.`
+    : `${selectionKind} selection found no entities.`;
+}
+
+function beginCanvasNavigation(event) {
+  if (canvasNavigationState.drag) return false;
+  const isMiddleButton = event.button === 1;
+  const isIsometricSelection = isometricViewState.active && event.button === 0;
+  const isIsometricOrbit = isometricViewState.active && event.button === 2;
+  if (!isMiddleButton && !isIsometricSelection && !isIsometricOrbit) {
+    return false;
+  }
+
+  event.preventDefault();
+  const displayView = isometricViewState.displayView;
+  if (isMiddleButton) {
+    canvasNavigationState.drag = {
+      kind: "pan",
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startCenterX: isometricViewState.active
+        ? displayView.centerX
+        : viewState.centerX,
+      startCenterY: isometricViewState.active
+        ? displayView.centerY
+        : viewState.centerY,
+      startNavigationAnchor: viewState.navigationAnchor
+        ? { ...viewState.navigationAnchor }
+        : null,
+      is3d: isometricViewState.active,
+    };
+    cadCanvas.classList.add("is-panning");
+  } else if (isIsometricOrbit) {
+    const pivotWorld = getIsometricOrbitPivotWorld();
+    const projectedPivot = projectWorldPointToIsometric(pivotWorld);
+    isometricViewState.pivotWorld = pivotWorld;
+    canvasNavigationState.drag = {
+      kind: "orbit-pending",
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startYaw: isometricViewState.yaw,
+      startPitch: isometricViewState.pitch,
+      startCenterX: displayView.centerX,
+      startCenterY: displayView.centerY,
+      pivotWorld,
+      pivotOffsetX: projectedPivot.x - displayView.centerX,
+      pivotOffsetY: projectedPivot.y - displayView.centerY,
+    };
+  } else {
+    canvasNavigationState.drag = {
+      kind: "selection-pending",
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      targetSelection: getCanvasModelSelectionTarget(event.target),
+      screenBounds: null,
+    };
+  }
+  cadCanvas.setPointerCapture(event.pointerId);
+  return true;
+}
+
+function continueCanvasNavigation(event) {
+  const drag = canvasNavigationState.drag;
+  if (!drag || drag.pointerId !== event.pointerId) return false;
+  event.preventDefault();
+  const deltaX = event.clientX - drag.startClientX;
+  const deltaY = event.clientY - drag.startClientY;
+  const distance = Math.hypot(deltaX, deltaY);
+
+  if (drag.kind === "pan") {
+    const canvasBounds = cadCanvas.getBoundingClientRect();
+    if (drag.is3d) {
+      const displayView = isometricViewState.displayView;
+      displayView.centerX =
+        drag.startCenterX - (deltaX / canvasBounds.width) * displayView.viewWidth;
+      displayView.centerY =
+        drag.startCenterY + (deltaY / canvasBounds.height) * displayView.viewHeight;
+      renderEntities();
+      commandStatus.textContent = "3D Pan: Release the middle button to finish.";
+    } else {
+      viewState.centerX =
+        drag.startCenterX - (deltaX / canvasBounds.width) * viewState.viewWidth;
+      viewState.centerY =
+        drag.startCenterY + (deltaY / canvasBounds.height) * viewState.viewHeight;
+      viewState.navigationAnchor = {
+        x: viewState.centerX,
+        y: viewState.centerY,
+      };
+      renderEntities();
+      commandStatus.textContent = "Pan: Release the middle button to finish.";
+    }
+    return true;
+  }
+
+  if (drag.kind === "orbit-pending" && distance >= CANVAS_DRAG_THRESHOLD_PX) {
+    drag.kind = "orbit";
+    cadCanvas.classList.add("is-orbiting");
+  }
+  if (drag.kind === "orbit") {
+    isometricViewState.yaw =
+      drag.startYaw + deltaX * ORBIT_RADIANS_PER_PIXEL;
+    isometricViewState.pitch = clampViewportValue(
+      drag.startPitch + deltaY * ORBIT_RADIANS_PER_PIXEL,
+      MIN_ORBIT_PITCH_RADIANS,
+      MAX_ORBIT_PITCH_RADIANS,
+    );
+    const projectedPivot = projectWorldPointToIsometric(drag.pivotWorld);
+    const displayView = isometricViewState.displayView;
+    displayView.centerX = projectedPivot.x - drag.pivotOffsetX;
+    displayView.centerY = projectedPivot.y - drag.pivotOffsetY;
+    renderEntities();
+    const yawDegrees = Math.round(
+      ((isometricViewState.yaw * 180) / Math.PI) * 10,
+    ) / 10;
+    const pitchDegrees = Math.round(
+      ((isometricViewState.pitch * 180) / Math.PI) * 10,
+    ) / 10;
+    commandStatus.textContent =
+      `3D Orbit: Yaw ${yawDegrees}°, pitch ${pitchDegrees}°. ` +
+      "Release the right button to finish.";
+    return true;
+  }
+
+  if (
+    drag.kind === "selection-pending" &&
+    distance >= CANVAS_DRAG_THRESHOLD_PX
+  ) {
+    drag.kind = "selection";
+    cadCanvas.classList.add("is-window-selecting");
+  }
+  if (drag.kind === "selection") {
+    drag.screenBounds = setSelectionMarquee(
+      drag.startClientX,
+      drag.startClientY,
+      event.clientX,
+      event.clientY,
+    );
+    commandStatus.textContent = drag.screenBounds.crossing
+      ? "3D Crossing Select: All touched entities will be added."
+      : "3D Window Select: Fully enclosed entities will be added.";
+    return true;
+  }
+  return true;
+}
+
+function finishCanvasNavigation(event) {
+  const drag = canvasNavigationState.drag;
+  if (!drag || drag.pointerId !== event.pointerId) return false;
+  event.preventDefault();
+  if (cadCanvas.hasPointerCapture?.(event.pointerId)) {
+    cadCanvas.releasePointerCapture(event.pointerId);
+  }
+  canvasNavigationState.drag = null;
+  canvasNavigationState.suppressClickUntil = performance.now() + 200;
+  cadCanvas.classList.remove(
+    "is-orbiting",
+    "is-panning",
+    "is-window-selecting",
+  );
+
+  if (drag.kind === "selection-pending") {
+    selectIsometricTarget(drag.targetSelection);
+  } else if (drag.kind === "selection") {
+    if (drag.screenBounds) selectEntitiesInScreenRectangle(drag.screenBounds);
+  } else if (drag.kind === "orbit-pending") {
+    commandStatus.textContent =
+      "3D context menu is reserved for a future command set.";
+  } else if (drag.kind === "orbit") {
+    canvasNavigationState.suppressContextMenuUntil = performance.now() + 300;
+    commandStatus.textContent =
+      "3D Orbit complete. Right drag again to continue orbiting.";
+  } else if (drag.kind === "pan") {
+    commandStatus.textContent = drag.is3d
+      ? "3D Pan complete."
+      : "Pan complete.";
+  }
+  hideSelectionMarquee();
+  return true;
+}
+
+function cancelCanvasNavigation(
+  statusMessage = "Navigation canceled.",
+  { restore = true } = {},
+) {
+  const drag = canvasNavigationState.drag;
+  if (!drag) return false;
+  if (restore) {
+    if (drag.kind === "orbit" || drag.kind === "orbit-pending") {
+      isometricViewState.yaw = drag.startYaw;
+      isometricViewState.pitch = drag.startPitch;
+      if (isometricViewState.displayView) {
+        isometricViewState.displayView.centerX = drag.startCenterX;
+        isometricViewState.displayView.centerY = drag.startCenterY;
+      }
+      renderEntities();
+    } else if (drag.kind === "pan") {
+      if (drag.is3d && isometricViewState.displayView) {
+        isometricViewState.displayView.centerX = drag.startCenterX;
+        isometricViewState.displayView.centerY = drag.startCenterY;
+      } else {
+        viewState.centerX = drag.startCenterX;
+        viewState.centerY = drag.startCenterY;
+        viewState.navigationAnchor = drag.startNavigationAnchor;
+      }
+      renderEntities();
+    }
+  }
+  if (cadCanvas.hasPointerCapture?.(drag.pointerId)) {
+    cadCanvas.releasePointerCapture(drag.pointerId);
+  }
+  canvasNavigationState.drag = null;
+  canvasNavigationState.suppressClickUntil = performance.now() + 200;
+  cadCanvas.classList.remove(
+    "is-orbiting",
+    "is-panning",
+    "is-window-selecting",
+  );
+  hideSelectionMarquee();
+  if (statusMessage) commandStatus.textContent = statusMessage;
+  return true;
+}
+
+function zoomCanvasAtPointer(event) {
+  const canvasBounds = cadCanvas.getBoundingClientRect();
+  if (canvasBounds.width <= 0 || canvasBounds.height <= 0) return;
+  event.preventDefault();
+  const wheelSteps = clampViewportValue(event.deltaY / 100, -4, 4);
+  const zoomFactor = Math.pow(WHEEL_ZOOM_FACTOR, -wheelSteps);
+  const normalizedX =
+    (event.clientX - canvasBounds.left) / canvasBounds.width - 0.5;
+  const normalizedY =
+    (event.clientY - canvasBounds.top) / canvasBounds.height - 0.5;
+
+  if (isometricViewState.active) {
+    const displayView = isometricViewState.displayView;
+    if (!displayView) return;
+    const nextZoom = clampViewportValue(
+      displayView.zoom * zoomFactor,
+      MIN_ZOOM,
+      MAX_ZOOM,
+    );
+    if (Math.abs(nextZoom - displayView.zoom) <= 1e-12) return;
+    const projectedX = displayView.centerX + normalizedX * displayView.viewWidth;
+    const projectedY = displayView.centerY - normalizedY * displayView.viewHeight;
+    const baseView = getCanvasBaseViewSize(
+      canvasBounds.width,
+      canvasBounds.height,
+    );
+    displayView.zoom = nextZoom;
+    displayView.viewWidth = baseView.width / nextZoom;
+    displayView.viewHeight = baseView.height / nextZoom;
+    displayView.centerX = projectedX - normalizedX * displayView.viewWidth;
+    displayView.centerY = projectedY + normalizedY * displayView.viewHeight;
+    viewState.zoom = nextZoom;
+    renderEntities();
+    zoomStatus.textContent = `3D: ${Math.round(nextZoom * 100)}%`;
+    commandStatus.textContent =
+      `3D Zoom: ${Math.round(nextZoom * 100)}% toward the pointer.`;
+    return;
+  }
+
+  const nextZoom = clampViewportValue(
+    viewState.zoom * zoomFactor,
+    MIN_ZOOM,
+    MAX_ZOOM,
+  );
+  if (Math.abs(nextZoom - viewState.zoom) <= 1e-12) return;
+  const worldX = viewState.centerX + normalizedX * viewState.viewWidth;
+  const worldY = viewState.centerY - normalizedY * viewState.viewHeight;
+  const baseView = getCanvasBaseViewSize(
+    canvasBounds.width,
+    canvasBounds.height,
+  );
+  viewState.zoom = nextZoom;
+  viewState.viewWidth = baseView.width / nextZoom;
+  viewState.viewHeight = baseView.height / nextZoom;
+  viewState.centerX = worldX - normalizedX * viewState.viewWidth;
+  viewState.centerY = worldY + normalizedY * viewState.viewHeight;
+  viewState.navigationAnchor = {
+    x: viewState.centerX,
+    y: viewState.centerY,
+  };
+  renderEntities();
+  const zoomPercent = Math.round(nextZoom * 100);
+  zoomStatus.textContent = `Zoom: ${zoomPercent}%`;
+  commandStatus.textContent = `Zoom: ${zoomPercent}% toward the pointer.`;
+}
+
 function fitViewToCanvas() {
   const baseView = getCanvasBaseViewSize(
     cadCanvas.clientWidth,
@@ -1027,18 +3128,59 @@ function setZoom(nextZoom, actionName) {
   commandStatus.textContent = `${actionName}: ${zoomPercent}%`;
 }
 
+function setIsometricZoom(nextZoom, actionName) {
+  const displayView = isometricViewState.displayView;
+  if (!displayView) return;
+  const baseView = getCanvasBaseViewSize(
+    cadCanvas.clientWidth,
+    cadCanvas.clientHeight,
+  );
+  if (!baseView) return;
+  displayView.zoom = clampViewportValue(nextZoom, MIN_ZOOM, MAX_ZOOM);
+  displayView.viewWidth = baseView.width / displayView.zoom;
+  displayView.viewHeight = baseView.height / displayView.zoom;
+  viewState.zoom = displayView.zoom;
+  renderEntities();
+  const zoomPercent = Math.round(displayView.zoom * 100);
+  zoomStatus.textContent = `3D: ${zoomPercent}%`;
+  commandStatus.textContent = `${actionName}: ${zoomPercent}%`;
+}
+
 function zoomIn() {
   deactivateWindowZoom();
+  if (isometricViewState.active) {
+    setIsometricZoom(
+      isometricViewState.displayView.zoom + ZOOM_STEP,
+      "3D Zoom In",
+    );
+    return;
+  }
   setZoom(viewState.zoom + ZOOM_STEP, "Zoom In");
 }
 
 function zoomOut() {
   deactivateWindowZoom();
+  if (isometricViewState.active) {
+    setIsometricZoom(
+      isometricViewState.displayView.zoom - ZOOM_STEP,
+      "3D Zoom Out",
+    );
+    return;
+  }
   setZoom(viewState.zoom - ZOOM_STEP, "Zoom Out");
 }
 
 function homeView() {
   deactivateWindowZoom();
+  if (isometricViewState.active) {
+    isometricViewState.yaw = ISOMETRIC_YAW_RADIANS;
+    isometricViewState.pitch = ISOMETRIC_PITCH_RADIANS;
+    isometricViewState.displayView = null;
+    refreshIsometricView({ refit: true });
+    commandStatus.textContent =
+      "3D Home: Restored the default isometric camera and fitted the workspace.";
+    return;
+  }
   viewState.centerX = ORIGIN.x;
   viewState.centerY = ORIGIN.y;
   viewState.navigationAnchor = null;
@@ -1047,6 +3189,14 @@ function homeView() {
 
 function fitAllGeometry() {
   deactivateWindowZoom();
+  if (isometricViewState.active) {
+    isometricViewState.displayView = null;
+    refreshIsometricView({ refit: true });
+    commandStatus.textContent = isometricViewState.hasGeometry
+      ? "3D Fit: All visible profiles and solids fitted."
+      : "3D Fit: Workspace is empty; returned to the 3D Home view.";
+    return;
+  }
   let bounds = getDocumentGeometryBounds();
 
   if (!bounds) {
@@ -1096,10 +3246,7 @@ function deactivateWindowZoom(statusMessage = null) {
     windowZoomState.canceledPointerId = drag.pointerId;
     windowZoomState.suppressClickUntil = Infinity;
   }
-  if (
-    drag &&
-    cadCanvas.hasPointerCapture?.(drag.pointerId)
-  ) {
+  if (drag && cadCanvas.hasPointerCapture?.(drag.pointerId)) {
     cadCanvas.releasePointerCapture(drag.pointerId);
   }
   windowZoomState.active = false;
@@ -1113,6 +3260,11 @@ function deactivateWindowZoom(statusMessage = null) {
 
 function activateWindowZoom() {
   dismissViewMenu();
+  if (isometricViewState.active) {
+    commandStatus.textContent =
+      "View - Window is replaced by Window/Crossing selection in the 3D workspace.";
+    return;
+  }
   deactivateWindowZoom();
   windowZoomState.active = true;
   windowZoomState.canceledPointerId = null;
@@ -1127,7 +3279,12 @@ function activateWindowZoom() {
     "View - Window: Drag an area to enlarge. Window remains active until another action or Escape.";
 }
 
-function getAspectMatchedWindowRect(startClientX, startClientY, clientX, clientY) {
+function getAspectMatchedWindowRect(
+  startClientX,
+  startClientY,
+  clientX,
+  clientY,
+) {
   const canvasBounds = cadCanvas.getBoundingClientRect();
   const clampedX = clampViewportValue(
     clientX,
@@ -1182,11 +3339,7 @@ function getAspectMatchedWindowRect(startClientX, startClientY, clientX, clientY
     canvasBounds.left,
     canvasBounds.right - width,
   );
-  top = clampViewportValue(
-    top,
-    canvasBounds.top,
-    canvasBounds.bottom - height,
-  );
+  top = clampViewportValue(top, canvasBounds.top, canvasBounds.bottom - height);
 
   return {
     left,
@@ -1303,13 +3456,10 @@ function panViewportBy(axis, distance) {
 function pageViewportTowardPointer(axis, event) {
   const axisState = viewportScrollState[axis];
   if (!axisState.enabled) return;
-  const thumb =
-    axis === "horizontal" ? cadHorizontalThumb : cadVerticalThumb;
+  const thumb = axis === "horizontal" ? cadHorizontalThumb : cadVerticalThumb;
   const thumbBounds = thumb.getBoundingClientRect();
-  const pointerPosition =
-    axis === "horizontal" ? event.clientX : event.clientY;
-  const thumbStart =
-    axis === "horizontal" ? thumbBounds.left : thumbBounds.top;
+  const pointerPosition = axis === "horizontal" ? event.clientX : event.clientY;
+  const thumbStart = axis === "horizontal" ? thumbBounds.left : thumbBounds.top;
   const thumbEnd =
     axis === "horizontal" ? thumbBounds.right : thumbBounds.bottom;
   if (pointerPosition >= thumbStart && pointerPosition <= thumbEnd) return;
@@ -1327,15 +3477,12 @@ function beginViewportScrollbarDrag(axis, event) {
   if (!axisState.enabled || event.button !== 0) return;
   event.preventDefault();
   event.stopPropagation();
-  const thumb =
-    axis === "horizontal" ? cadHorizontalThumb : cadVerticalThumb;
+  const thumb = axis === "horizontal" ? cadHorizontalThumb : cadVerticalThumb;
   viewportScrollState.drag = {
     axis,
     pointerId: event.pointerId,
-    startPointer:
-      axis === "horizontal" ? event.clientX : event.clientY,
-    startCenter:
-      axis === "horizontal" ? viewState.centerX : viewState.centerY,
+    startPointer: axis === "horizontal" ? event.clientX : event.clientY,
+    startCenter: axis === "horizontal" ? viewState.centerX : viewState.centerY,
   };
   thumb.setPointerCapture(event.pointerId);
 }
@@ -1355,8 +3502,7 @@ function continueViewportScrollbarDrag(event) {
   const travel = trackSize - thumbSize;
   if (travel <= 0) return;
 
-  const pointer =
-    drag.axis === "horizontal" ? event.clientX : event.clientY;
+  const pointer = drag.axis === "horizontal" ? event.clientX : event.clientY;
   const visualDelta = pointer - drag.startPointer;
   const centerRange = axisState.maxCenter - axisState.minCenter;
   const direction = drag.axis === "vertical" ? -1 : 1;
@@ -1453,6 +3599,72 @@ cadVerticalTrack.addEventListener("keydown", (event) => {
   handleViewportScrollbarKey("vertical", event);
 });
 
+function convertDisplayLengthToInternal(value, units = documentModel.units) {
+  return units === "metric" ? value / MILLIMETERS_PER_INCH : value;
+}
+
+function convertInternalLengthToDisplay(value, units = documentModel.units) {
+  return units === "metric" ? value * MILLIMETERS_PER_INCH : value;
+}
+
+function formatLengthResult(value, units = documentModel.units) {
+  return formatArithmeticResult(convertInternalLengthToDisplay(value, units));
+}
+
+function convertLengthInputValues(previousUnits, nextUnits) {
+  UNIT_LENGTH_INPUTS.forEach((input) => {
+    const previousDisplayValue = evaluateArithmeticExpression(input.value);
+    if (!Number.isFinite(previousDisplayValue)) return;
+    const internalValue = convertDisplayLengthToInternal(
+      previousDisplayValue,
+      previousUnits,
+    );
+    input.value = formatArithmeticResult(
+      convertInternalLengthToDisplay(internalValue, nextUnits),
+    );
+    input.setCustomValidity("");
+  });
+}
+
+function updateUnitsUi() {
+  Object.entries(UNIT_MENUS).forEach(([units, menuButton]) => {
+    const isCurrent = units === documentModel.units;
+    menuButton.classList.toggle("current-menu-option", isCurrent);
+    menuButton.setAttribute("aria-pressed", String(isCurrent));
+  });
+  unitsStatus.textContent = `Units: ${UNIT_DISPLAY_NAMES[documentModel.units]}`;
+}
+
+function closeUnitsMenu() {
+  unitsMenuItem.classList.add("is-dismissed");
+  document.activeElement?.blur();
+}
+
+function setDocumentUnits(nextUnits) {
+  if (!Object.hasOwn(UNIT_MENUS, nextUnits)) return;
+  const previousUnits = documentModel.units;
+  if (previousUnits === nextUnits) {
+    updateUnitsUi();
+    closeUnitsMenu();
+    commandStatus.textContent = `Units: ${UNIT_DISPLAY_NAMES[nextUnits]}`;
+    return;
+  }
+
+  cancelGeometryToolsForLayerChange();
+  convertLengthInputValues(previousUnits, nextUnits);
+  documentModel.units = nextUnits;
+  updateUnitsUi();
+  closeUnitsMenu();
+  clearEntityHoverInfo();
+  cursorX.textContent = "X: ----";
+  cursorY.textContent = "Y: ----";
+  renderEntities();
+  commandStatus.textContent =
+    nextUnits === "metric"
+      ? "Units: Metric. Existing geometry is now displayed in millimetres."
+      : "Units: Inch. Existing geometry is now displayed in inches.";
+}
+
 function applyTheme(themeName) {
   document.body.dataset.theme = themeName;
 
@@ -1480,9 +3692,282 @@ function dismissLayerMenu() {
   document.activeElement?.blur();
 }
 
-function selectCurrentLayer() {
+function getLayerById(layerId) {
+  return documentModel.layers.find((layer) => layer.id === layerId) ?? null;
+}
+
+function getCurrentLayer() {
+  return getLayerById(documentModel.currentLayerId);
+}
+
+function getEntityLayerId(entity) {
+  return Number.isInteger(entity.layerId) ? entity.layerId : 0;
+}
+
+function isEntityOnCurrentLayer(entity) {
+  return getEntityLayerId(entity) === documentModel.currentLayerId;
+}
+
+function isEntityLayerVisible(entity) {
+  const layer = getLayerById(getEntityLayerId(entity));
+  return layer ? !layer.masked : false;
+}
+
+function isCurrentLayerEditable() {
+  const layer = getCurrentLayer();
+  return Boolean(layer && !layer.locked && !layer.masked);
+}
+
+function getCurrentLayerRestrictionMessage(actionName) {
+  const layer = getCurrentLayer();
+  if (!layer) return `${actionName}: Select a valid layer first.`;
+  if (layer.masked) {
+    return `${actionName}: ${layer.name} is masked. Unmask it before editing.`;
+  }
+  if (layer.locked) {
+    return `${actionName}: ${layer.name} is locked. Unlock it before editing.`;
+  }
+  return null;
+}
+
+function clearSelectionForLayerChange() {
+  selectionState.selectedEntityId = null;
+  selectionState.hoveredEntityId = null;
+  selectionState.pickCycle = null;
+  selectionState.mode = null;
+  resetChainSelectionPreview();
+  clearModelSelection();
+  cadCanvas.classList.remove("select-single");
+}
+
+function cancelGeometryToolsForLayerChange() {
+  deactivateDimension();
+  deactivatePointSketch();
+  deactivateLineSketch();
+  deactivateLineAngle();
+  deactivateLineTangent();
+  deactivateJoin();
+  deactivateIntersectingPoint();
+  deactivateThreeEntityCircle();
+  deactivateTrimExtend();
+  deactivatePointOnEntity();
+  deactivatePointEnd();
+  deactivateFillet();
+  deactivateRotate();
+  deactivateWindowZoom();
+  if (!circleRadiusWindow.hidden) closeCircleRadiusWindow(null);
+  if (!hexagonWindow.hidden) closeHexagonWindow(null);
+  if (!rectangleWindow.hidden) closeRectangleWindow(null);
+  if (!boltHoleCircleWindow.hidden) closeBoltHoleCircleWindow(null);
+  if (!textWindow.hidden) closeTextWindow(null);
+  if (!offsetWindow.hidden) closeOffsetWindow(null);
+  if (!pointCoordinatesWindow.hidden) closePointCoordinatesWindow(null);
+  if (!lineCoordinatesWindow.hidden) closeLineCoordinatesWindow(null);
+  if (!pointIncrementalWindow.hidden) closePointIncrementalWindow(null);
+  if (!translateWindow.hidden) closeTranslateWindow(null);
+  if (!translateByPointsWindow.hidden) closeTranslateByPointsWindow(null);
+  if (!boxWindow.hidden) closeBoxWindow(null);
+}
+
+function renderLayerMenu() {
+  layerList.innerHTML = "";
+  documentModel.layers.forEach((layer) => {
+    const row = document.createElement("div");
+    row.className = "layer-menu-row";
+    row.dataset.layerId = String(layer.id);
+
+    const selectButton = document.createElement("button");
+    selectButton.type = "button";
+    selectButton.className = "layer-select-button";
+    selectButton.dataset.layerAction = "select";
+    selectButton.dataset.layerId = String(layer.id);
+    const stateParts = [];
+    if (layer.locked) stateParts.push("Locked");
+    if (layer.masked) stateParts.push("Masked");
+    selectButton.textContent = `${layer.name}${stateParts.length ? ` (${stateParts.join(", ")})` : ""}`;
+    const isCurrent = layer.id === documentModel.currentLayerId;
+    selectButton.classList.toggle("current-menu-option", isCurrent);
+    selectButton.setAttribute("aria-current", isCurrent ? "true" : "false");
+    row.appendChild(selectButton);
+
+    const actions = document.createElement("div");
+    actions.className = "submenu-item layer-actions";
+    const moreButton = document.createElement("button");
+    moreButton.type = "button";
+    moreButton.className = "submenu-trigger layer-more-button";
+    moreButton.setAttribute("aria-haspopup", "true");
+    moreButton.setAttribute("aria-label", `Manage ${layer.name}`);
+    moreButton.title = `Manage ${layer.name}`;
+    moreButton.textContent = "⋯";
+    actions.appendChild(moreButton);
+
+    const actionMenu = document.createElement("div");
+    actionMenu.className = "submenu-menu layer-action-menu";
+    actionMenu.setAttribute("aria-label", `${layer.name} commands`);
+    [
+      ["rename", "Rename"],
+      ["lock", layer.locked ? "Unlock" : "Lock"],
+      ["mask", layer.masked ? "Unmask" : "Mask"],
+    ].forEach(([action, label]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.layerAction = action;
+      button.dataset.layerId = String(layer.id);
+      button.textContent = label;
+      actionMenu.appendChild(button);
+    });
+    actions.appendChild(actionMenu);
+    enableDelayedMenuClose(actions);
+    row.appendChild(actions);
+    layerList.appendChild(row);
+  });
+
+  const currentLayer = getCurrentLayer();
+  layerMenuButton.textContent = currentLayer
+    ? `Layer: ${currentLayer.name.replace(/^Layer\s+/i, "")}`
+    : "Layer";
+  newLayerMenu.disabled = documentModel.layers.length >= MAX_LAYER_COUNT;
+  newLayerMenu.title = newLayerMenu.disabled
+    ? `A maximum of ${MAX_LAYER_COUNT} layers is allowed.`
+    : "Create a new layer";
+  renderSelectLayerMenu();
+}
+
+function renderSelectLayerMenu() {
+  selectLayerList.innerHTML = "";
+  documentModel.layers.forEach((layer) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.selectLayerId = String(layer.id);
+    const stateParts = [];
+    if (layer.locked) stateParts.push("Locked");
+    if (layer.masked) stateParts.push("Masked");
+    button.textContent =
+      `${layer.name}${stateParts.length ? ` (${stateParts.join(", ")})` : ""}`;
+    button.disabled = layer.locked || layer.masked;
+    button.title = button.disabled
+      ? `${layer.name} cannot be selected while ${layer.masked ? "masked" : "locked"}.`
+      : `Select all entities in ${layer.name}`;
+    button.setAttribute(
+      "aria-current",
+      layer.id === documentModel.currentLayerId ? "true" : "false",
+    );
+    selectLayerList.appendChild(button);
+  });
+}
+
+function selectLayer(layerId) {
+  const layer = getLayerById(layerId);
+  if (!layer) return;
+  cancelGeometryToolsForLayerChange();
+  clearSelectionForLayerChange();
+  documentModel.currentLayerId = layer.id;
   dismissLayerMenu();
-  commandStatus.textContent = "Current layer: 0";
+  renderEntities();
+  commandStatus.textContent =
+    `Current layer: ${layer.name}` +
+    (layer.locked ? " (locked)." : layer.masked ? " (masked)." : ".");
+}
+
+function createNewLayer() {
+  if (documentModel.layers.length >= MAX_LAYER_COUNT) {
+    commandStatus.textContent = `New Layer: The ${MAX_LAYER_COUNT}-layer limit has been reached.`;
+    return;
+  }
+  const layerId = documentModel.nextLayerId;
+  const existingNames = new Set(
+    documentModel.layers.map((layer) => layer.name.toLocaleLowerCase()),
+  );
+  const baseName = `Layer ${layerId}`;
+  let layerName = baseName;
+  let suffix = 2;
+  while (existingNames.has(layerName.toLocaleLowerCase())) {
+    layerName = `${baseName} (${suffix})`;
+    suffix += 1;
+  }
+  const layer = {
+    id: layerId,
+    name: layerName,
+    locked: false,
+    masked: false,
+  };
+  recordDocumentChange(`Create ${layer.name}`);
+  documentModel.nextLayerId += 1;
+  documentModel.layers.push(layer);
+  cancelGeometryToolsForLayerChange();
+  clearSelectionForLayerChange();
+  documentModel.currentLayerId = layer.id;
+  dismissLayerMenu();
+  renderEntities();
+  commandStatus.textContent = `Created and selected ${layer.name}.`;
+}
+
+function renameLayer(layerId) {
+  const layer = getLayerById(layerId);
+  if (!layer) return;
+  const requestedName = window.prompt("Layer name:", layer.name);
+  if (requestedName === null) return;
+  const name = requestedName.trim();
+  if (!name) {
+    commandStatus.textContent = "Rename Layer: Enter a nonempty name.";
+    return;
+  }
+  if (
+    documentModel.layers.some(
+      (candidate) =>
+        candidate.id !== layer.id &&
+        candidate.name.toLocaleLowerCase() === name.toLocaleLowerCase(),
+    )
+  ) {
+    commandStatus.textContent = `Rename Layer: A layer named “${name}” already exists.`;
+    return;
+  }
+  if (name === layer.name) return;
+  recordDocumentChange(`Rename ${layer.name} to ${name}`);
+  const oldName = layer.name;
+  layer.name = name.slice(0, 40);
+  dismissLayerMenu();
+  renderLayerMenu();
+  commandStatus.textContent = `Renamed ${oldName} to ${layer.name}.`;
+}
+
+function toggleLayerLock(layerId) {
+  const layer = getLayerById(layerId);
+  if (!layer) return;
+  recordDocumentChange(`${layer.locked ? "Unlock" : "Lock"} ${layer.name}`);
+  layer.locked = !layer.locked;
+  if (layer.id === documentModel.currentLayerId) {
+    cancelGeometryToolsForLayerChange();
+    clearSelectionForLayerChange();
+  }
+  dismissLayerMenu();
+  renderEntities();
+  commandStatus.textContent = `${layer.name} ${layer.locked ? "locked" : "unlocked"}.`;
+}
+
+function toggleLayerMask(layerId) {
+  const layer = getLayerById(layerId);
+  if (!layer) return;
+  recordDocumentChange(`${layer.masked ? "Unmask" : "Mask"} ${layer.name}`);
+  layer.masked = !layer.masked;
+  if (layer.id === documentModel.currentLayerId) {
+    cancelGeometryToolsForLayerChange();
+    clearSelectionForLayerChange();
+  }
+  dismissLayerMenu();
+  renderEntities();
+  commandStatus.textContent = `${layer.name} ${layer.masked ? "masked" : "unmasked"}.`;
+}
+
+function handleLayerMenuClick(event) {
+  const button = event.target.closest("button[data-layer-action]");
+  if (!button) return;
+  const layerId = Number(button.dataset.layerId);
+  if (!Number.isInteger(layerId)) return;
+  if (button.dataset.layerAction === "select") selectLayer(layerId);
+  if (button.dataset.layerAction === "rename") renameLayer(layerId);
+  if (button.dataset.layerAction === "lock") toggleLayerLock(layerId);
+  if (button.dataset.layerAction === "mask") toggleLayerMask(layerId);
 }
 
 function dismissHelpMenu() {
@@ -1513,6 +3998,210 @@ function closeAboutWindow(statusMessage = "Ready") {
   aboutWindowState.drag = null;
   aboutWindowTitleBar.classList.remove("is-dragging");
   if (statusMessage !== null) commandStatus.textContent = statusMessage;
+}
+
+function positionBoxWindowInitially() {
+  if (boxWindowState.hasPosition) return;
+  const bounds = boxWindow.getBoundingClientRect();
+  const left = Math.max(8, window.innerWidth - bounds.width - 24);
+  const top = Math.max(8, Math.min(76, window.innerHeight - bounds.height));
+  boxWindow.style.left = `${left}px`;
+  boxWindow.style.top = `${top}px`;
+  boxWindowState.hasPosition = true;
+}
+
+function resetBoxInputs() {
+  boxXInput.value = "0";
+  boxYInput.value = "0";
+  boxZInput.value = "0";
+  boxLengthInput.value = "2.000";
+  boxWidthInput.value = "1.000";
+  boxHeightInput.value = "1.000";
+  boxDraftAngleInput.value = "0";
+  [
+    boxXInput,
+    boxYInput,
+    boxZInput,
+    boxLengthInput,
+    boxWidthInput,
+    boxHeightInput,
+    boxDraftAngleInput,
+  ].forEach((input) => input.setCustomValidity(""));
+}
+
+function activateBox() {
+  modelMenuItem.classList.add("is-dismissed");
+  if (!is3dWorkspace()) {
+    commandStatus.textContent = "Box is available in the 3D workspace.";
+    return;
+  }
+  const restrictionMessage = getCurrentLayerRestrictionMessage("Box");
+  if (restrictionMessage) {
+    commandStatus.textContent = restrictionMessage;
+    return;
+  }
+  cancelGeometryToolsForLayerChange();
+  resetBoxInputs();
+  boxToolMessage.textContent =
+    "Position is the center and elevation of the bottom face.";
+  delete boxToolMessage.dataset.arithmeticError;
+  boxWindow.hidden = false;
+  boxWindow.classList.remove("is-minimized", "is-maximized");
+  positionBoxWindowInitially();
+  boxXInput.focus();
+  boxXInput.select();
+  commandStatus.textContent = "Box: Enter position, dimensions, and draft angle.";
+}
+
+function closeBoxWindow(statusMessage = "Box canceled.") {
+  if (boxWindow.classList.contains("is-maximized")) {
+    toggleBoxWindowMaximized();
+  }
+  boxWindow.hidden = true;
+  boxWindowState.drag = null;
+  boxWindowTitleBar.classList.remove("is-dragging");
+  if (statusMessage !== null) commandStatus.textContent = statusMessage;
+}
+
+function toggleBoxWindowMinimized() {
+  if (boxWindow.classList.contains("is-maximized")) {
+    boxWindow.classList.remove("is-maximized");
+  }
+  boxWindow.classList.toggle("is-minimized");
+  boxMaximizeIcon.innerHTML = "&#9633;";
+}
+
+function toggleBoxWindowMaximized() {
+  boxWindow.classList.remove("is-minimized");
+  const willMaximize = !boxWindow.classList.contains("is-maximized");
+  if (willMaximize) {
+    const bounds = boxWindow.getBoundingClientRect();
+    boxWindowState.restoreBounds = {
+      left: bounds.left,
+      top: bounds.top,
+      width: bounds.width,
+      height: bounds.height,
+    };
+    boxWindow.classList.add("is-maximized");
+    boxMaximizeIcon.innerHTML = "&#10064;";
+    return;
+  }
+  boxWindow.classList.remove("is-maximized");
+  if (boxWindowState.restoreBounds) {
+    const { left, top, width, height } = boxWindowState.restoreBounds;
+    boxWindow.style.left = `${left}px`;
+    boxWindow.style.top = `${top}px`;
+    boxWindow.style.width = `${width}px`;
+    boxWindow.style.height = `${height}px`;
+  }
+  boxMaximizeIcon.innerHTML = "&#9633;";
+}
+
+function beginBoxWindowDrag(event) {
+  if (
+    event.button !== 0 ||
+    event.target.closest(".window-control") ||
+    boxWindow.classList.contains("is-maximized")
+  ) {
+    return;
+  }
+  const bounds = boxWindow.getBoundingClientRect();
+  boxWindowState.drag = {
+    pointerId: event.pointerId,
+    offsetX: event.clientX - bounds.left,
+    offsetY: event.clientY - bounds.top,
+  };
+  boxWindowTitleBar.classList.add("is-dragging");
+  boxWindowTitleBar.setPointerCapture(event.pointerId);
+}
+
+function continueBoxWindowDrag(event) {
+  const drag = boxWindowState.drag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  const bounds = boxWindow.getBoundingClientRect();
+  const left = Math.min(
+    Math.max(0, window.innerWidth - bounds.width),
+    Math.max(0, event.clientX - drag.offsetX),
+  );
+  const top = Math.min(
+    Math.max(0, window.innerHeight - boxWindowTitleBar.offsetHeight),
+    Math.max(0, event.clientY - drag.offsetY),
+  );
+  boxWindow.style.left = `${left}px`;
+  boxWindow.style.top = `${top}px`;
+  boxWindowState.hasPosition = true;
+}
+
+function endBoxWindowDrag(event) {
+  if (boxWindowState.drag?.pointerId !== event.pointerId) return;
+  boxWindowState.drag = null;
+  boxWindowTitleBar.classList.remove("is-dragging");
+  if (boxWindowTitleBar.hasPointerCapture(event.pointerId)) {
+    boxWindowTitleBar.releasePointerCapture(event.pointerId);
+  }
+}
+
+function resolveBoxInput(input, label, { positive = false } = {}) {
+  return resolveArithmeticInput(input, {
+    messageElement: boxToolMessage,
+    invalidMessage: `Enter a valid arithmetic expression for ${label}.`,
+    validationMessage: (value) =>
+      positive && value <= GEOMETRY_EPSILON
+        ? `${label} must be greater than zero.`
+        : null,
+    successMessage: "Enter position, dimensions, and draft angle.",
+  });
+}
+
+function createBoxFromInputs() {
+  const inputSpecifications = [
+    ["x", boxXInput, "X", false],
+    ["y", boxYInput, "Y", false],
+    ["z", boxZInput, "Z", false],
+    ["length", boxLengthInput, "length", true],
+    ["width", boxWidthInput, "width", true],
+    ["height", boxHeightInput, "height", true],
+    ["draftAngleDegrees", boxDraftAngleInput, "draft angle", false],
+  ];
+  const values = {};
+  for (const [key, input, label, positive] of inputSpecifications) {
+    const value = resolveBoxInput(input, label, { positive });
+    if (value === null) {
+      input.focus();
+      input.select();
+      commandStatus.textContent = `Box: ${boxToolMessage.textContent}`;
+      return;
+    }
+    values[key] = value;
+  }
+
+  let solid;
+  try {
+    solid = buildBoxSolid({
+      id: documentModel.model3d.nextSolidId,
+      layerId: documentModel.currentLayerId,
+      ...values,
+    });
+  } catch (error) {
+    boxToolMessage.textContent = error.message;
+    boxToolMessage.dataset.arithmeticError = "true";
+    commandStatus.textContent = `Box: ${error.message}`;
+    return;
+  }
+
+  recordDocumentChange(`Create Box ${solid.id}`);
+  documentModel.model3d.nextSolidId += 1;
+  documentModel.model3d.solids.push(solid);
+  selectionState.selectedEntityId = null;
+  clearModelSelection();
+  modelSelectionState.selectedSolidIds.add(solid.id);
+  closeBoxWindow(null);
+  refreshIsometricView({ refit: true });
+  commandStatus.textContent =
+    `Created Box ${solid.id}: ` +
+    `${formatLengthResult(values.length)} × ${formatLengthResult(values.width)} × ` +
+    `${formatLengthResult(values.height)}, draft ` +
+    `${formatArithmeticResult(values.draftAngleDegrees)}°.`;
 }
 
 function setCalculatorButtonActive(active) {
@@ -1560,7 +4249,7 @@ function dismissSelectMenu() {
   document.activeElement?.blur();
 }
 
-function activateSingleSelect() {
+function prepareSelectionCommand() {
   dismissSelectMenu();
   resetChainSelectionPreview();
   deactivateDimension();
@@ -1576,12 +4265,34 @@ function activateSingleSelect() {
   if (!offsetWindow.hidden) closeOffsetWindow(null);
   if (!pointCoordinatesWindow.hidden) closePointCoordinatesWindow(null);
   if (!lineCoordinatesWindow.hidden) closeLineCoordinatesWindow(null);
+}
+
+function activateSingleSelect() {
+  prepareSelectionCommand();
+  const restrictionMessage = getCurrentLayerRestrictionMessage("Select");
+  if (restrictionMessage) {
+    selectionState.mode = null;
+    cadCanvas.classList.remove("select-single");
+    commandStatus.textContent = restrictionMessage;
+    renderEntities();
+    return false;
+  }
+  if (is3dWorkspace()) {
+    selectionState.mode = null;
+    selectionState.hoveredEntityId = null;
+    selectionState.pickCycle = null;
+    cadCanvas.classList.remove("select-single");
+    commandStatus.textContent =
+      "Select - Single: Click an entity, face, or solid to add it; click empty space to clear the selection.";
+    return true;
+  }
   selectionState.mode = "single";
   selectionState.hoveredEntityId = null;
   selectionState.pickCycle = null;
   cadCanvas.classList.add("select-single");
   commandStatus.textContent =
     "Select - Single: Click entities one at a time to add them; click empty space to clear the selection.";
+  return true;
 }
 
 function resetChainSelectionPreview() {
@@ -1651,8 +4362,7 @@ function getChainExitEndpointIndex(entity, worldPoint) {
 
 function areChainPointsConnected(firstPoint, secondPoint) {
   return (
-    squaredDistance(firstPoint, secondPoint) <=
-    CHAIN_CONNECTION_TOLERANCE ** 2
+    squaredDistance(firstPoint, secondPoint) <= CHAIN_CONNECTION_TOLERANCE ** 2
   );
 }
 
@@ -1663,7 +4373,11 @@ function collectDirectionalChain(startEntity, exitEndpointIndex) {
   }
 
   const chainEntities = documentModel.entities
-    .filter((entity) => entity.type === "line" || entity.type === "arc")
+    .filter(
+      (entity) =>
+        isEntityOnCurrentLayer(entity) &&
+        (entity.type === "line" || entity.type === "arc"),
+    )
     .map((entity) => ({ entity, endpoints: getChainEntityEndpoints(entity) }))
     .filter(({ endpoints }) => endpoints !== null);
   const visitedEntityIds = new Set([startEntity.id]);
@@ -1837,7 +4551,7 @@ function handleChainSelectClick(event) {
 }
 
 function activateChainSelect() {
-  activateSingleSelect();
+  if (!activateSingleSelect()) return;
   selectionState.mode = "chain";
   resetChainSelectionPreview();
   renderEntities();
@@ -1847,13 +4561,19 @@ function activateChainSelect() {
 
 function selectAllPoints() {
   dismissSelectMenu();
-  activateSingleSelect();
+  if (!activateSingleSelect()) return;
   selectionState.mode = null;
   selectionState.hoveredEntityId = null;
   selectionState.pickCycle = null;
   cadCanvas.classList.remove("select-single");
   const pointIds = documentModel.entities
-    .filter((entity) => entity.type === "point" && !entity.isConstruction)
+    .filter(
+      (entity) =>
+        isCurrentLayerEditable() &&
+        isEntityOnCurrentLayer(entity) &&
+        entity.type === "point" &&
+        !entity.isConstruction,
+    )
     .map((entity) => entity.id);
   if (!pointIds.length) {
     commandStatus.textContent =
@@ -1862,7 +4582,8 @@ function selectAllPoints() {
   }
   const previousSelectionCount = selectionState.selectedEntityIds.size;
   addEntityIdsToSelection(pointIds);
-  const addedCount = selectionState.selectedEntityIds.size - previousSelectionCount;
+  const addedCount =
+    selectionState.selectedEntityIds.size - previousSelectionCount;
   renderEntities();
   commandStatus.textContent =
     `Select - Points: ${pointIds.length} ${pointIds.length === 1 ? "point" : "points"} selected` +
@@ -1871,13 +4592,18 @@ function selectAllPoints() {
 
 function selectAllLines() {
   dismissSelectMenu();
-  activateSingleSelect();
+  if (!activateSingleSelect()) return;
   selectionState.mode = null;
   selectionState.hoveredEntityId = null;
   selectionState.pickCycle = null;
   cadCanvas.classList.remove("select-single");
   const lineIds = documentModel.entities
-    .filter((entity) => entity.type === "line")
+    .filter(
+      (entity) =>
+        isCurrentLayerEditable() &&
+        isEntityOnCurrentLayer(entity) &&
+        entity.type === "line",
+    )
     .map((entity) => entity.id);
   if (!lineIds.length) {
     commandStatus.textContent =
@@ -1886,7 +4612,8 @@ function selectAllLines() {
   }
   const previousSelectionCount = selectionState.selectedEntityIds.size;
   addEntityIdsToSelection(lineIds);
-  const addedCount = selectionState.selectedEntityIds.size - previousSelectionCount;
+  const addedCount =
+    selectionState.selectedEntityIds.size - previousSelectionCount;
   renderEntities();
   commandStatus.textContent =
     `Select - Lines: ${lineIds.length} ${lineIds.length === 1 ? "line" : "lines"} selected` +
@@ -1895,24 +4622,30 @@ function selectAllLines() {
 
 function selectAllArcsAndCircles() {
   dismissSelectMenu();
-  activateSingleSelect();
+  if (!activateSingleSelect()) return;
   selectionState.mode = null;
   selectionState.hoveredEntityId = null;
   selectionState.pickCycle = null;
   cadCanvas.classList.remove("select-single");
   const curvedEntities = documentModel.entities.filter(
-    (entity) => entity.type === "arc" || entity.type === "circle",
+    (entity) =>
+      isCurrentLayerEditable() &&
+      isEntityOnCurrentLayer(entity) &&
+      (entity.type === "arc" || entity.type === "circle"),
   );
   if (!curvedEntities.length) {
     commandStatus.textContent =
       "Select - Arcs: No arcs or circles found; the current selection was kept.";
     return;
   }
-  const arcCount = curvedEntities.filter((entity) => entity.type === "arc").length;
+  const arcCount = curvedEntities.filter(
+    (entity) => entity.type === "arc",
+  ).length;
   const circleCount = curvedEntities.length - arcCount;
   const previousSelectionCount = selectionState.selectedEntityIds.size;
   addEntityIdsToSelection(curvedEntities.map((entity) => entity.id));
-  const addedCount = selectionState.selectedEntityIds.size - previousSelectionCount;
+  const addedCount =
+    selectionState.selectedEntityIds.size - previousSelectionCount;
   renderEntities();
   commandStatus.textContent =
     `Select - Arcs: Selected ${arcCount} ${arcCount === 1 ? "arc" : "arcs"} and ` +
@@ -1922,13 +4655,18 @@ function selectAllArcsAndCircles() {
 
 function selectAllDimensions() {
   dismissSelectMenu();
-  activateSingleSelect();
+  if (!activateSingleSelect()) return;
   selectionState.mode = null;
   selectionState.hoveredEntityId = null;
   selectionState.pickCycle = null;
   cadCanvas.classList.remove("select-single");
   const dimensionIds = documentModel.entities
-    .filter((entity) => entity.type === "dimension")
+    .filter(
+      (entity) =>
+        isCurrentLayerEditable() &&
+        isEntityOnCurrentLayer(entity) &&
+        entity.type === "dimension",
+    )
     .map((entity) => entity.id);
   if (!dimensionIds.length) {
     commandStatus.textContent =
@@ -1937,7 +4675,8 @@ function selectAllDimensions() {
   }
   const previousSelectionCount = selectionState.selectedEntityIds.size;
   addEntityIdsToSelection(dimensionIds);
-  const addedCount = selectionState.selectedEntityIds.size - previousSelectionCount;
+  const addedCount =
+    selectionState.selectedEntityIds.size - previousSelectionCount;
   renderEntities();
   commandStatus.textContent =
     `Select - Dimensions: ${dimensionIds.length} ` +
@@ -1945,15 +4684,100 @@ function selectAllDimensions() {
     ` (${addedCount} newly added; ${selectionState.selectedEntityIds.size} total).`;
 }
 
+function selectAllEntitiesOnLayer(layerId) {
+  const layer = getLayerById(layerId);
+  if (!layer) {
+    commandStatus.textContent = "Select - Layer: That layer is no longer available.";
+    return;
+  }
+  if (layer.locked || layer.masked) {
+    commandStatus.textContent =
+      `Select - Layer: ${layer.name} is ${layer.masked ? "masked" : "locked"} and cannot be selected.`;
+    return;
+  }
+
+  prepareSelectionCommand();
+  selectionState.mode = null;
+  selectionState.hoveredEntityId = null;
+  selectionState.pickCycle = null;
+  cadCanvas.classList.remove("select-single");
+  const layerEntityIds = documentModel.entities
+    .filter(
+      (entity) =>
+        getEntityLayerId(entity) === layer.id &&
+        (entity.type !== "point" || !entity.isConstruction),
+    )
+    .map((entity) => entity.id);
+  if (!layerEntityIds.length) {
+    commandStatus.textContent =
+      `Select - Layer: ${layer.name} has no selectable entities; the current selection was kept.`;
+    return;
+  }
+
+  const previousSelectionCount = selectionState.selectedEntityIds.size;
+  addEntityIdsToSelection(layerEntityIds);
+  const addedCount =
+    selectionState.selectedEntityIds.size - previousSelectionCount;
+  renderEntities();
+  commandStatus.textContent =
+    `Select - Layer: ${layerEntityIds.length} ` +
+    `${layerEntityIds.length === 1 ? "entity" : "entities"} in ${layer.name} selected` +
+    ` (${addedCount} newly added; ${selectionState.selectedEntityIds.size} total).`;
+}
+
+function handleSelectLayerMenuClick(event) {
+  const button = event.target.closest("button[data-select-layer-id]");
+  if (!button || button.disabled) return;
+  const layerId = Number(button.dataset.selectLayerId);
+  if (!Number.isInteger(layerId)) return;
+  selectAllEntitiesOnLayer(layerId);
+}
+
 function selectAllEntities() {
   dismissSelectMenu();
-  activateSingleSelect();
+  if (!activateSingleSelect()) return;
+  if (is3dWorkspace()) {
+    const visibleProfileIds = documentModel.entities
+      .filter(
+        (entity) =>
+          isCurrentLayerEditable() &&
+          isEntityOnCurrentLayer(entity) &&
+          isEntityLayerVisible(entity) &&
+          (entity.type !== "point" || !entity.isConstruction),
+      )
+      .map((entity) => entity.id);
+    const visibleSolidIds = documentModel.model3d.solids
+      .filter(
+        (solid) =>
+          isCurrentLayerEditable() &&
+          isEntityOnCurrentLayer(solid) &&
+          isEntityLayerVisible(solid),
+      )
+      .map((solid) => solid.id);
+    visibleProfileIds.forEach((entityId) =>
+      selectionState.selectedEntityIds.add(entityId),
+    );
+    visibleSolidIds.forEach((solidId) =>
+      modelSelectionState.selectedSolidIds.add(solidId),
+    );
+    const total = visibleProfileIds.length + visibleSolidIds.length;
+    renderEntities();
+    commandStatus.textContent = total
+      ? `Select - All: Selected ${total} visible 3D workspace ${total === 1 ? "item" : "items"}.`
+      : "Select - All: No visible profiles or solids found.";
+    return;
+  }
   selectionState.mode = null;
   selectionState.hoveredEntityId = null;
   selectionState.pickCycle = null;
   cadCanvas.classList.remove("select-single");
   const visibleEntityIds = documentModel.entities
-    .filter((entity) => entity.type !== "point" || !entity.isConstruction)
+    .filter(
+      (entity) =>
+        isCurrentLayerEditable() &&
+        isEntityOnCurrentLayer(entity) &&
+        (entity.type !== "point" || !entity.isConstruction),
+    )
     .map((entity) => entity.id);
   if (!visibleEntityIds.length) {
     commandStatus.textContent = "Select - All: No visible entities found.";
@@ -1961,7 +4785,8 @@ function selectAllEntities() {
   }
   const previousSelectionCount = selectionState.selectedEntityIds.size;
   addEntityIdsToSelection(visibleEntityIds);
-  const addedCount = selectionState.selectedEntityIds.size - previousSelectionCount;
+  const addedCount =
+    selectionState.selectedEntityIds.size - previousSelectionCount;
   renderEntities();
   commandStatus.textContent =
     `Select - All: ${visibleEntityIds.length} ` +
@@ -1971,20 +4796,29 @@ function selectAllEntities() {
 
 function deselectAllEntities() {
   dismissSelectMenu();
-  const selectionCount = selectionState.selectedEntityIds.size;
+  const selectionCount =
+    selectionState.selectedEntityIds.size +
+    modelSelectionState.selectedSolidIds.size;
   selectionState.selectedEntityId = null;
   selectionState.hoveredEntityId = null;
   selectionState.pickCycle = null;
   resetChainSelectionPreview();
+  clearModelSelection();
   renderEntities();
   commandStatus.textContent = selectionCount
-    ? `Deselected ${selectionCount} ${selectionCount === 1 ? "entity" : "entities"}.`
-    : "Deselect All: No entities were selected.";
+    ? `Deselected ${selectionCount} ${selectionCount === 1 ? "item" : "items"}.`
+    : "Deselect All: Nothing was selected.";
+}
+
+function formatDecimal(value, decimalPlaces = 4) {
+  const threshold = 0.5 * 10 ** -decimalPlaces;
+  const normalizedValue = Math.abs(value) < threshold ? 0 : value;
+  return normalizedValue.toFixed(decimalPlaces);
 }
 
 function formatCoordinate(value) {
-  const normalizedValue = Math.abs(value) < 0.00005 ? 0 : value;
-  return normalizedValue.toFixed(4);
+  const displayValue = convertInternalLengthToDisplay(value);
+  return formatDecimal(displayValue, documentModel.units === "metric" ? 3 : 4);
 }
 
 function evaluateArithmeticExpression(expression) {
@@ -2012,7 +4846,8 @@ function evaluateArithmeticExpression(expression) {
     index += 1;
     const value = parseExpression();
     skipWhitespace();
-    if (source[index] !== ")") throw new Error("Expected a closing parenthesis");
+    if (source[index] !== ")")
+      throw new Error("Expected a closing parenthesis");
     index += 1;
     return value;
   }
@@ -2073,8 +4908,14 @@ function formatArithmeticResult(value) {
   return Number(normalizedValue.toPrecision(15)).toString();
 }
 
-function getArithmeticInputValue(input) {
+function getArithmeticDisplayValue(input) {
   return evaluateArithmeticExpression(input.value);
+}
+
+function getArithmeticInputValue(input) {
+  const value = getArithmeticDisplayValue(input);
+  if (value === null || !UNIT_LENGTH_INPUTS.has(input)) return value;
+  return convertDisplayLengthToInternal(value);
 }
 
 function resolveArithmeticInput(
@@ -2086,7 +4927,13 @@ function resolveArithmeticInput(
     successMessage = null,
   },
 ) {
-  const value = getArithmeticInputValue(input);
+  const displayValue = getArithmeticDisplayValue(input);
+  const value =
+    displayValue === null
+      ? null
+      : UNIT_LENGTH_INPUTS.has(input)
+        ? convertDisplayLengthToInternal(displayValue)
+        : displayValue;
   let message = value === null ? invalidMessage : "";
   if (!message && validationMessage) {
     message = validationMessage(value) ?? "";
@@ -2101,7 +4948,7 @@ function resolveArithmeticInput(
     return null;
   }
 
-  input.value = formatArithmeticResult(value);
+  input.value = formatArithmeticResult(displayValue);
   if (messageElement?.dataset.arithmeticError === "true") {
     const resolvedSuccessMessage =
       typeof successMessage === "function" ? successMessage() : successMessage;
@@ -2156,7 +5003,14 @@ function getEntityDescription(entity) {
     return (
       `Arc ${entity.id}: X${formatCoordinate(centerPoint.x)} ` +
       `Y${formatCoordinate(centerPoint.y)} R${formatCoordinate(entity.radius)} ` +
-      `Sweep ${formatCoordinate(sweepDegrees)}°`
+      `Sweep ${formatDecimal(sweepDegrees)}°`
+    );
+  }
+
+  if (entity.type === "text") {
+    return (
+      `Text ${entity.id}: “${entity.content}” ` +
+      `Height ${formatCoordinate(entity.height)}`
     );
   }
 
@@ -2171,7 +5025,7 @@ function getEntityDescription(entity) {
       return `Diameter Dimension ${entity.id}: ⌀${formatCoordinate(entity.radius * 2)}`;
     }
     if (entity.dimensionType === "angle") {
-      return `Angle Dimension ${entity.id}: ${formatCoordinate(entity.valueDegrees)}°`;
+      return `Angle Dimension ${entity.id}: ${formatDecimal(entity.valueDegrees)}°`;
     }
   }
 
@@ -2180,9 +5034,11 @@ function getEntityDescription(entity) {
 
 function formatDxfNumber(value) {
   const normalizedValue = Math.abs(value) <= 1e-12 ? 0 : value;
-  return normalizedValue
-    .toFixed(12)
-    .replace(/\.?0+$/, "");
+  return normalizedValue.toFixed(12).replace(/\.?0+$/, "");
+}
+
+function formatDxfLength(value) {
+  return formatDxfNumber(convertInternalLengthToDisplay(value));
 }
 
 function appendDxfPair(lines, code, value) {
@@ -2221,8 +5077,8 @@ function getDxfExportData() {
         type: "POINT",
         layer: "POINTS",
         values: [
-          [10, formatDxfNumber(entity.x)],
-          [20, formatDxfNumber(entity.y)],
+          [10, formatDxfLength(entity.x)],
+          [20, formatDxfLength(entity.y)],
           [30, "0"],
         ],
       });
@@ -2239,11 +5095,11 @@ function getDxfExportData() {
         type: "LINE",
         layer: "GEOMETRY",
         values: [
-          [10, formatDxfNumber(startPoint.x)],
-          [20, formatDxfNumber(startPoint.y)],
+          [10, formatDxfLength(startPoint.x)],
+          [20, formatDxfLength(startPoint.y)],
           [30, "0"],
-          [11, formatDxfNumber(endPoint.x)],
-          [21, formatDxfNumber(endPoint.y)],
+          [11, formatDxfLength(endPoint.x)],
+          [21, formatDxfLength(endPoint.y)],
           [31, "0"],
         ],
       });
@@ -2252,19 +5108,29 @@ function getDxfExportData() {
 
     if (entity.type === "circle") {
       const centerPoint = getPointById(entity.centerPointId);
-      if (!centerPoint || !Number.isFinite(entity.radius) || entity.radius <= 0) {
+      if (
+        !centerPoint ||
+        !Number.isFinite(entity.radius) ||
+        entity.radius <= 0
+      ) {
         return;
       }
-      includePoint(centerPoint.x - entity.radius, centerPoint.y - entity.radius);
-      includePoint(centerPoint.x + entity.radius, centerPoint.y + entity.radius);
+      includePoint(
+        centerPoint.x - entity.radius,
+        centerPoint.y - entity.radius,
+      );
+      includePoint(
+        centerPoint.x + entity.radius,
+        centerPoint.y + entity.radius,
+      );
       records.push({
         type: "CIRCLE",
         layer: "GEOMETRY",
         values: [
-          [10, formatDxfNumber(centerPoint.x)],
-          [20, formatDxfNumber(centerPoint.y)],
+          [10, formatDxfLength(centerPoint.x)],
+          [20, formatDxfLength(centerPoint.y)],
           [30, "0"],
-          [40, formatDxfNumber(entity.radius)],
+          [40, formatDxfLength(entity.radius)],
         ],
       });
       return;
@@ -2299,16 +5165,22 @@ function getDxfExportData() {
         ) *
           180) /
         Math.PI;
-      includePoint(centerPoint.x - entity.radius, centerPoint.y - entity.radius);
-      includePoint(centerPoint.x + entity.radius, centerPoint.y + entity.radius);
+      includePoint(
+        centerPoint.x - entity.radius,
+        centerPoint.y - entity.radius,
+      );
+      includePoint(
+        centerPoint.x + entity.radius,
+        centerPoint.y + entity.radius,
+      );
       records.push({
         type: "ARC",
         layer: "GEOMETRY",
         values: [
-          [10, formatDxfNumber(centerPoint.x)],
-          [20, formatDxfNumber(centerPoint.y)],
+          [10, formatDxfLength(centerPoint.x)],
+          [20, formatDxfLength(centerPoint.y)],
           [30, "0"],
-          [40, formatDxfNumber(entity.radius)],
+          [40, formatDxfLength(entity.radius)],
           [50, formatDxfNumber(startAngle)],
           [51, formatDxfNumber(endAngle)],
         ],
@@ -2328,21 +5200,22 @@ function createDxfDocument() {
   appendDxfPair(
     lines,
     999,
-    `${APP_NAME} V${APP_VERSION} R12 ASCII DXF - drawing units are inches`,
+    `${APP_NAME} V${APP_VERSION} R12 ASCII DXF - drawing units are ` +
+      `${documentModel.units === "metric" ? "millimetres" : "inches"}`,
   );
   appendDxfPair(lines, 0, "SECTION");
   appendDxfPair(lines, 2, "HEADER");
   appendDxfPair(lines, 9, "$ACADVER");
   appendDxfPair(lines, 1, "AC1009");
   appendDxfPair(lines, 9, "$MEASUREMENT");
-  appendDxfPair(lines, 70, 0);
+  appendDxfPair(lines, 70, documentModel.units === "metric" ? 1 : 0);
   appendDxfPair(lines, 9, "$EXTMIN");
-  appendDxfPair(lines, 10, formatDxfNumber(extents.minX));
-  appendDxfPair(lines, 20, formatDxfNumber(extents.minY));
+  appendDxfPair(lines, 10, formatDxfLength(extents.minX));
+  appendDxfPair(lines, 20, formatDxfLength(extents.minY));
   appendDxfPair(lines, 30, 0);
   appendDxfPair(lines, 9, "$EXTMAX");
-  appendDxfPair(lines, 10, formatDxfNumber(extents.maxX));
-  appendDxfPair(lines, 20, formatDxfNumber(extents.maxY));
+  appendDxfPair(lines, 10, formatDxfLength(extents.maxX));
+  appendDxfPair(lines, 20, formatDxfLength(extents.maxY));
   appendDxfPair(lines, 30, 0);
   appendDxfPair(lines, 0, "ENDSEC");
 
@@ -2423,7 +5296,7 @@ function clearEntityHoverInfo() {
 
 function updateEntityHoverInfo(target) {
   const entityElement = target.closest(
-    ".point-entity, .line-entity, .circle-entity, .arc-entity, .dimension-entity",
+    ".point-entity, .line-entity, .circle-entity, .arc-entity, .text-entity, .dimension-entity",
   );
   if (!entityElement) {
     clearEntityHoverInfo();
@@ -2451,6 +5324,35 @@ function updateEntityHoverInfoById(entityId) {
   entityHoverInfo.hidden = false;
 }
 
+function updateModelHoverInfo(target) {
+  const faceElement = target?.closest?.(".solid-face[data-solid-id]");
+  modelLayer
+    .querySelectorAll(".solid-face.is-hovered")
+    .forEach((element) => element.classList.remove("is-hovered"));
+  if (!faceElement) {
+    modelSelectionState.hoveredSolidId = null;
+    modelSelectionState.hoveredFaceIndex = null;
+    clearEntityHoverInfo();
+    return false;
+  }
+  const solidId = Number(faceElement.dataset.solidId);
+  const faceIndex = Number(faceElement.dataset.faceIndex);
+  const solid = getSolidById(solidId);
+  if (!solid) return false;
+  faceElement.classList.add("is-hovered");
+  modelSelectionState.hoveredSolidId = solidId;
+  modelSelectionState.hoveredFaceIndex = faceIndex;
+  const faceId = faceElement.dataset.faceId ?? `face-${faceIndex}`;
+  const faceName =
+    getSolidFaceRecords(solid).find((face) => face.id === faceId)?.name ??
+    `Face ${faceIndex + 1}`;
+  entityHoverInfo.removeAttribute("data-entity-id");
+  entityHoverInfo.textContent = `${getSolidDescription(solid)}: ${faceName} face`;
+  commandStatus.hidden = true;
+  entityHoverInfo.hidden = false;
+  return true;
+}
+
 function setSelectionProximityHover(entityId) {
   if (selectionState.hoveredEntityId === entityId) return;
   selectionState.hoveredEntityId = entityId;
@@ -2470,26 +5372,44 @@ function renderPoint(point) {
   const pointGroup = createSvgElement("g", {
     class: [
       "point-entity",
+      isEntityOnCurrentLayer(point) && isCurrentLayerEditable()
+        ? ""
+        : "is-inactive-layer",
       isEntitySelected(point.id) ? "is-selected" : "",
       threeEntityCircleState.entityIds.includes(point.id)
         ? "is-apollonius-source"
         : "",
       joinState.firstPointId === point.id ? "is-join-start" : "",
       lineSketchState.startPointId === point.id ? "is-line-sketch-start" : "",
+      lineAngleState.sourceEntityId === point.id ? "is-line-angle-source" : "",
+      lineTangentState.sourceEntityId === point.id
+        ? "is-line-tangent-source"
+        : "",
       circleState.centerPointId === point.id ? "is-circle-center" : "",
       hexagonState.centerPointId === point.id ? "is-hexagon-center" : "",
-      dimensionState.firstPointId === point.id ? "is-dimension-first" : "",
+      rectangleState.centerPointId === point.id ? "is-rectangle-center" : "",
+      boltHoleCircleState.centerPointId === point.id
+        ? "is-bolt-hole-circle-center"
+        : "",
+      dimensionState.firstEntityId === point.id ? "is-dimension-first" : "",
       pointOnEntityState.awaitingDirection && isDirectionChoice
         ? "is-point-on-entity-direction"
         : "",
       pointOnEntityState.zeroPointId === point.id
         ? "is-point-on-entity-zero"
         : "",
+      translateByPointsState.firstPointId === point.id
+        ? "is-translate-first-point"
+        : "",
+      translateByPointsState.secondPointId === point.id
+        ? "is-translate-second-point"
+        : "",
     ]
       .filter(Boolean)
       .join(" "),
     "data-entity-id": point.id,
     "data-entity-type": point.type,
+    "data-layer-id": getEntityLayerId(point),
   });
 
   // Counter the view zoom so point markers keep the same on-screen size.
@@ -2541,6 +5461,9 @@ function renderLineEntity(lineEntity) {
   const lineGroup = createSvgElement("g", {
     class: [
       "line-entity",
+      isEntityOnCurrentLayer(lineEntity) && isCurrentLayerEditable()
+        ? ""
+        : "is-inactive-layer",
       isEntitySelected(lineEntity.id) ? "is-selected" : "",
       threeEntityCircleState.entityIds.includes(lineEntity.id)
         ? "is-apollonius-source"
@@ -2556,14 +5479,19 @@ function renderLineEntity(lineEntity) {
         ? "is-point-on-entity-source"
         : "",
       filletState.firstEntityId === lineEntity.id ? "is-fillet-first" : "",
+      dimensionState.firstEntityId === lineEntity.id ||
       dimensionState.firstLineId === lineEntity.id
         ? "is-dimension-first"
+        : "",
+      lineAngleState.sourceEntityId === lineEntity.id
+        ? "is-line-angle-source"
         : "",
     ]
       .filter(Boolean)
       .join(" "),
     "data-entity-id": lineEntity.id,
     "data-entity-type": lineEntity.type,
+    "data-layer-id": getEntityLayerId(lineEntity),
   });
 
   drawLine(
@@ -2596,6 +5524,9 @@ function renderCircleEntity(circleEntity) {
   const circleGroup = createSvgElement("g", {
     class: [
       "circle-entity",
+      isEntityOnCurrentLayer(circleEntity) && isCurrentLayerEditable()
+        ? ""
+        : "is-inactive-layer",
       isEntitySelected(circleEntity.id) ? "is-selected" : "",
       threeEntityCircleState.entityIds.includes(circleEntity.id)
         ? "is-apollonius-source"
@@ -2611,11 +5542,21 @@ function renderCircleEntity(circleEntity) {
         ? "is-point-on-entity-source"
         : "",
       filletState.firstEntityId === circleEntity.id ? "is-fillet-first" : "",
+      dimensionState.firstEntityId === circleEntity.id
+        ? "is-dimension-first"
+        : "",
+      lineAngleState.sourceEntityId === circleEntity.id
+        ? "is-line-angle-source"
+        : "",
+      lineTangentState.sourceEntityId === circleEntity.id
+        ? "is-line-tangent-source"
+        : "",
     ]
       .filter(Boolean)
       .join(" "),
     "data-entity-id": circleEntity.id,
     "data-entity-type": circleEntity.type,
+    "data-layer-id": getEntityLayerId(circleEntity),
   });
 
   circleGroup.appendChild(
@@ -2665,16 +5606,27 @@ function renderArcEntity(arcEntity) {
   const arcGroup = createSvgElement("g", {
     class: [
       "arc-entity",
+      isEntityOnCurrentLayer(arcEntity) && isCurrentLayerEditable()
+        ? ""
+        : "is-inactive-layer",
       isEntitySelected(arcEntity.id) ? "is-selected" : "",
       pointOnEntityState.sourceEntityId === arcEntity.id
         ? "is-point-on-entity-source"
         : "",
       filletState.firstEntityId === arcEntity.id ? "is-fillet-first" : "",
+      dimensionState.firstEntityId === arcEntity.id ? "is-dimension-first" : "",
+      lineAngleState.sourceEntityId === arcEntity.id
+        ? "is-line-angle-source"
+        : "",
+      lineTangentState.sourceEntityId === arcEntity.id
+        ? "is-line-tangent-source"
+        : "",
     ]
       .filter(Boolean)
       .join(" "),
     "data-entity-id": arcEntity.id,
     "data-entity-type": arcEntity.type,
+    "data-layer-id": getEntityLayerId(arcEntity),
   });
 
   arcGroup.appendChild(
@@ -2696,6 +5648,41 @@ function renderArcEntity(arcEntity) {
     `endpoint points ${startPoint.id} and ${endPoint.id}`;
   arcGroup.appendChild(title);
   entityLayer.appendChild(arcGroup);
+}
+
+function renderTextEntity(textEntity) {
+  const bounds = getTextEntityBounds(textEntity);
+  if (!bounds) return;
+  const group = createSvgElement("g", {
+    class: [
+      "text-entity",
+      isEntityOnCurrentLayer(textEntity) && isCurrentLayerEditable()
+        ? ""
+        : "is-inactive-layer",
+      isEntitySelected(textEntity.id) ? "is-selected" : "",
+    ]
+      .filter(Boolean)
+      .join(" "),
+    "data-entity-id": textEntity.id,
+    "data-entity-type": textEntity.type,
+    "data-layer-id": getEntityLayerId(textEntity),
+  });
+  group.appendChild(
+    createSvgElement("rect", {
+      x: bounds.minX,
+      y: bounds.minY,
+      width: bounds.width,
+      height: bounds.height,
+      class: "text-hit-target",
+    }),
+  );
+  group.appendChild(createCadTextElement(textEntity, "text-geometry"));
+  const title = createSvgElement("title", {});
+  title.textContent =
+    `Text ${textEntity.id}: ${textEntity.content}; ` +
+    `height ${formatCoordinate(textEntity.height)}`;
+  group.appendChild(title);
+  entityLayer.appendChild(group);
 }
 
 function appendDimensionArrow(parent, tip, inwardDirection) {
@@ -2746,12 +5733,16 @@ function renderDimensionEntity(dimension) {
   const group = createSvgElement("g", {
     class: [
       "dimension-entity",
+      isEntityOnCurrentLayer(dimension) && isCurrentLayerEditable()
+        ? ""
+        : "is-inactive-layer",
       isEntitySelected(dimension.id) ? "is-selected" : "",
     ]
       .filter(Boolean)
       .join(" "),
     "data-entity-id": dimension.id,
     "data-entity-type": dimension.type,
+    "data-layer-id": getEntityLayerId(dimension),
   });
   let hitPath = "";
   let titleText = `Dimension ${dimension.id}`;
@@ -2795,10 +5786,8 @@ function renderDimensionEntity(dimension) {
       { x: dimension.dimensionEndX, y: dimension.dimensionEndY },
       { x: -direction.x, y: -direction.y },
     );
-    const labelX =
-      (dimension.dimensionStartX + dimension.dimensionEndX) / 2;
-    const labelY =
-      (dimension.dimensionStartY + dimension.dimensionEndY) / 2;
+    const labelX = (dimension.dimensionStartX + dimension.dimensionEndX) / 2;
+    const labelY = (dimension.dimensionStartY + dimension.dimensionEndY) / 2;
     appendDimensionText(
       group,
       labelX,
@@ -2808,8 +5797,7 @@ function renderDimensionEntity(dimension) {
     hitPath =
       `M ${dimension.dimensionStartX} ${dimension.dimensionStartY} ` +
       `L ${dimension.dimensionEndX} ${dimension.dimensionEndY}`;
-    titleText =
-      `Linear dimension ${dimension.id}: ${formatCoordinate(dimension.value)}`;
+    titleText = `Linear dimension ${dimension.id}: ${formatCoordinate(dimension.value)}`;
   } else if (
     dimension.dimensionType === "radius" ||
     dimension.dimensionType === "diameter"
@@ -2913,12 +5901,11 @@ function renderDimensionEntity(dimension) {
       group,
       dimension.centerX + Math.cos(middleAngle) * labelRadius,
       dimension.centerY + Math.sin(middleAngle) * labelRadius,
-      `${formatCoordinate(dimension.valueDegrees)}°`,
+      `${formatDecimal(dimension.valueDegrees)}°`,
     );
-    titleText =
-      `Angle dimension ${dimension.id}: ${formatCoordinate(
-        dimension.valueDegrees,
-      )}°`;
+    titleText = `Angle dimension ${dimension.id}: ${formatDecimal(
+      dimension.valueDegrees,
+    )}°`;
   }
 
   if (!hitPath) return;
@@ -2940,11 +5927,19 @@ function getCircleRadiusInputValue() {
   return Number.isFinite(radius) && radius > 0 ? radius : null;
 }
 
+function getHexagonCenterXInputValue() {
+  const centerX = getArithmeticInputValue(hexagonCenterXInput);
+  return Number.isFinite(centerX) ? centerX : null;
+}
+
+function getHexagonCenterYInputValue() {
+  const centerY = getArithmeticInputValue(hexagonCenterYInput);
+  return Number.isFinite(centerY) ? centerY : null;
+}
+
 function getHexagonAcrossFlatsInputValue() {
   const acrossFlats = getArithmeticInputValue(hexagonAcrossFlatsInput);
-  return Number.isFinite(acrossFlats) && acrossFlats > 0
-    ? acrossFlats
-    : null;
+  return Number.isFinite(acrossFlats) && acrossFlats > 0 ? acrossFlats : null;
 }
 
 function getHexagonCornerRadiusInputValue(acrossFlats) {
@@ -2994,6 +5989,16 @@ function getBoltHoleDiameterInputValue() {
   return Number.isFinite(diameter) && diameter > 0 ? diameter : null;
 }
 
+function getBoltHoleCircleCenterXInputValue() {
+  const centerX = getArithmeticInputValue(boltHoleCircleCenterXInput);
+  return Number.isFinite(centerX) ? centerX : null;
+}
+
+function getBoltHoleCircleCenterYInputValue() {
+  const centerY = getArithmeticInputValue(boltHoleCircleCenterYInput);
+  return Number.isFinite(centerY) ? centerY : null;
+}
+
 function getBoltHoleCountInputValue() {
   const holeCount = getArithmeticInputValue(boltHoleCountInput);
   return Number.isSafeInteger(holeCount) &&
@@ -3006,6 +6011,26 @@ function getBoltHoleCountInputValue() {
 function getBoltHoleFeatureDiameterInputValue() {
   const diameter = getArithmeticInputValue(boltHoleFeatureDiameterInput);
   return Number.isFinite(diameter) && diameter >= 0 ? diameter : null;
+}
+
+function getCenterFromToolState(state, getCenterX, getCenterY) {
+  if (state.centerMode === "point") {
+    return getPointById(state.centerPointId) ?? null;
+  }
+  if (state.centerMode !== "defined") return null;
+  const x = getCenterX();
+  const y = getCenterY();
+  return x === null || y === null ? null : { x, y };
+}
+
+function hasSelectableCenterPoint() {
+  return documentModel.entities.some(
+    (entity) =>
+      entity.type === "point" &&
+      !entity.isConstruction &&
+      isEntityOnCurrentLayer(entity) &&
+      isEntityLayerVisible(entity),
+  );
 }
 
 function getRectangleGeometry(center, xSize, ySize, radius) {
@@ -3128,11 +6153,7 @@ function getHexagonGeometry(centerPoint, acrossFlats, cornerRadius) {
 }
 
 function getHexagonPreviewPath(centerPoint, acrossFlats, cornerRadius) {
-  const geometry = getHexagonGeometry(
-    centerPoint,
-    acrossFlats,
-    cornerRadius,
-  );
+  const geometry = getHexagonGeometry(centerPoint, acrossFlats, cornerRadius);
   if (!geometry.corners) {
     return [
       `M ${geometry.vertices[0].x} ${geometry.vertices[0].y}`,
@@ -3157,6 +6178,60 @@ function getHexagonPreviewPath(centerPoint, acrossFlats, cornerRadius) {
   return commands.join(" ");
 }
 
+function getTextHeightInputValue() {
+  const height = getArithmeticInputValue(textHeightInput);
+  return Number.isFinite(height) && height > GEOMETRY_EPSILON ? height : null;
+}
+
+function getTextContentInputValue() {
+  return textContentInput.value.trim() ? textContentInput.value : null;
+}
+
+function renderTextPlacementPreview() {
+  const position = textPlacementState.previewWorld;
+  const height = getTextHeightInputValue();
+  const content = getTextContentInputValue();
+  if (!position || height === null || content === null) return;
+  const previewEntity = {
+    x: position.x,
+    y: position.y,
+    height,
+    content,
+  };
+  const bounds = getTextEntityBounds(previewEntity);
+  if (!bounds) return;
+  previewLayer.appendChild(
+    createSvgElement("rect", {
+      x: bounds.minX,
+      y: bounds.minY,
+      width: bounds.width,
+      height: bounds.height,
+      class: "text-placement-bounds-preview",
+    }),
+  );
+  previewLayer.appendChild(
+    createCadTextElement(previewEntity, "text-placement-preview"),
+  );
+  const diagonal = 0.15 / viewState.zoom;
+  const offset = diagonal / (2 * Math.SQRT2);
+  drawLine(
+    previewLayer,
+    position.x - offset,
+    position.y - offset,
+    position.x + offset,
+    position.y + offset,
+    "text-placement-anchor-preview",
+  );
+  drawLine(
+    previewLayer,
+    position.x - offset,
+    position.y + offset,
+    position.x + offset,
+    position.y - offset,
+    "text-placement-anchor-preview",
+  );
+}
+
 function renderToolPreview() {
   previewLayer.innerHTML = "";
 
@@ -3173,6 +6248,11 @@ function renderToolPreview() {
         }),
       );
     }
+    return;
+  }
+
+  if (textPlacementState.active) {
+    renderTextPlacementPreview();
     return;
   }
 
@@ -3209,14 +6289,7 @@ function renderToolPreview() {
       x: tip.x - arrow.direction.x * headLength,
       y: tip.y - arrow.direction.y * headLength,
     };
-    drawLine(
-      arrowGroup,
-      tail.x,
-      tail.y,
-      tip.x,
-      tip.y,
-      "chain-direction-arrow",
-    );
+    drawLine(arrowGroup, tail.x, tail.y, tip.x, tip.y, "chain-direction-arrow");
     drawLine(
       arrowGroup,
       tip.x,
@@ -3275,6 +6348,34 @@ function renderToolPreview() {
     return;
   }
 
+  if (lineAngleState.active && lineAngleState.sourceEntityId !== null) {
+    const geometry = getLineAngleGeometry();
+    if (!geometry) return;
+    drawLine(
+      previewLayer,
+      geometry.start.x,
+      geometry.start.y,
+      geometry.end.x,
+      geometry.end.y,
+      "line-angle-preview",
+    );
+    return;
+  }
+
+  if (lineTangentState.active && lineTangentState.sourceEntityId !== null) {
+    const geometry = getLineTangentGeometry();
+    if (!geometry) return;
+    drawLine(
+      previewLayer,
+      geometry.start.x,
+      geometry.start.y,
+      geometry.end.x,
+      geometry.end.y,
+      "line-tangent-preview",
+    );
+    return;
+  }
+
   if (
     lineSketchState.active &&
     lineSketchState.startPointId !== null &&
@@ -3294,7 +6395,11 @@ function renderToolPreview() {
     return;
   }
 
-  if (joinState.active && joinState.firstPointId !== null && joinState.previewWorld) {
+  if (
+    joinState.active &&
+    joinState.firstPointId !== null &&
+    joinState.previewWorld
+  ) {
     const startPoint = getPointById(joinState.firstPointId);
     if (!startPoint) return;
 
@@ -3309,8 +6414,12 @@ function renderToolPreview() {
     return;
   }
 
-  if (hexagonState.active && hexagonState.centerPointId !== null) {
-    const centerPoint = getPointById(hexagonState.centerPointId);
+  if (hexagonState.active) {
+    const centerPoint = getCenterFromToolState(
+      hexagonState,
+      getHexagonCenterXInputValue,
+      getHexagonCenterYInputValue,
+    );
     const acrossFlats = getHexagonAcrossFlatsInputValue();
     const cornerRadius = getHexagonCornerRadiusInputValue(acrossFlats);
     if (!centerPoint || acrossFlats === null || cornerRadius === null) return;
@@ -3339,31 +6448,344 @@ function renderToolPreview() {
   );
 }
 
+function shadeHexColor(hexColor, factor) {
+  const channels = [1, 3, 5].map((index) =>
+    Number.parseInt(hexColor.slice(index, index + 2), 16),
+  );
+  return `#${channels
+    .map((channel) =>
+      Math.round(clampViewportValue(channel * factor, 0, 255))
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
+function getTrihedronWorldUnitsPerPixel() {
+  const displayView = isometricViewState.displayView;
+  const canvasWidth = cadCanvas.clientWidth;
+  const canvasHeight = cadCanvas.clientHeight;
+  if (!displayView || canvasWidth <= 0 || canvasHeight <= 0) return null;
+  const horizontalScale = displayView.viewWidth / canvasWidth;
+  const verticalScale = displayView.viewHeight / canvasHeight;
+  return Math.sqrt(horizontalScale * verticalScale);
+}
+
+function addScaledWorldVectors(...vectors) {
+  return vectors.reduce(
+    (sum, vector) => ({
+      x: sum.x + vector.x,
+      y: sum.y + vector.y,
+      z: sum.z + vector.z,
+    }),
+    { x: 0, y: 0, z: 0 },
+  );
+}
+
+function scaleWorldVector(vector, scale) {
+  return {
+    x: vector.x * scale,
+    y: vector.y * scale,
+    z: vector.z * scale,
+  };
+}
+
+function getTrihedronAxisFaces(axisDefinition, worldUnitsPerPixel) {
+  const shaftLength = TRIHEDRON_SHAFT_LENGTH_PX * worldUnitsPerPixel;
+  const axisLength = TRIHEDRON_AXIS_LENGTH_PX * worldUnitsPerPixel;
+  const shaftRadius = TRIHEDRON_SHAFT_RADIUS_PX * worldUnitsPerPixel;
+  const coneRadius = TRIHEDRON_CONE_RADIUS_PX * worldUnitsPerPixel;
+  const baseCenter = { x: 0, y: 0, z: 0 };
+  const shaftEnd = scaleWorldVector(axisDefinition.direction, shaftLength);
+  const tip = scaleWorldVector(axisDefinition.direction, axisLength);
+  const shaftBaseRing = [];
+  const shaftEndRing = [];
+  const coneBaseRing = [];
+
+  for (let index = 0; index < TRIHEDRON_RADIAL_SEGMENTS; index += 1) {
+    const angle = (index / TRIHEDRON_RADIAL_SEGMENTS) * Math.PI * 2;
+    const radialDirection = addScaledWorldVectors(
+      scaleWorldVector(axisDefinition.radialU, Math.cos(angle)),
+      scaleWorldVector(axisDefinition.radialV, Math.sin(angle)),
+    );
+    shaftBaseRing.push(
+      addScaledWorldVectors(
+        baseCenter,
+        scaleWorldVector(radialDirection, shaftRadius),
+      ),
+    );
+    shaftEndRing.push(
+      addScaledWorldVectors(
+        shaftEnd,
+        scaleWorldVector(radialDirection, shaftRadius),
+      ),
+    );
+    coneBaseRing.push(
+      addScaledWorldVectors(
+        shaftEnd,
+        scaleWorldVector(radialDirection, coneRadius),
+      ),
+    );
+  }
+
+  const faces = [
+    {
+      part: "shaft-cap",
+      vertices: [...shaftBaseRing].reverse(),
+      shade: 0.72,
+    },
+    {
+      part: "cone-base",
+      vertices: [...coneBaseRing].reverse(),
+      shade: 0.7,
+    },
+  ];
+  for (let index = 0; index < TRIHEDRON_RADIAL_SEGMENTS; index += 1) {
+    const nextIndex = (index + 1) % TRIHEDRON_RADIAL_SEGMENTS;
+    const faceShade = 0.68 + 0.32 * ((Math.cos(
+      ((index + 0.5) / TRIHEDRON_RADIAL_SEGMENTS) * Math.PI * 2,
+    ) + 1) / 2);
+    faces.push({
+      part: "shaft",
+      vertices: [
+        shaftBaseRing[index],
+        shaftBaseRing[nextIndex],
+        shaftEndRing[nextIndex],
+        shaftEndRing[index],
+      ],
+      shade: faceShade,
+    });
+    faces.push({
+      part: "cone",
+      vertices: [coneBaseRing[index], coneBaseRing[nextIndex], tip],
+      shade: Math.min(1.08, faceShade + 0.08),
+    });
+  }
+  return faces.map((face) => ({
+    ...face,
+    axis: axisDefinition.axis,
+    baseColor: axisDefinition.color,
+  }));
+}
+
+function renderTrihedron() {
+  trihedronLayer.innerHTML = "";
+  const shouldRender =
+    isometricViewState.active &&
+    trihedronState.visible &&
+    isometricViewState.displayView;
+  trihedronLayer.toggleAttribute("hidden", !shouldRender);
+  if (!shouldRender) return;
+  const worldUnitsPerPixel = getTrihedronWorldUnitsPerPixel();
+  if (!Number.isFinite(worldUnitsPerPixel) || worldUnitsPerPixel <= 0) return;
+
+  const axisDefinitions = [
+    {
+      axis: "x",
+      color: "#e53935",
+      direction: { x: 1, y: 0, z: 0 },
+      radialU: { x: 0, y: 1, z: 0 },
+      radialV: { x: 0, y: 0, z: 1 },
+    },
+    {
+      axis: "y",
+      color: "#16a34a",
+      direction: { x: 0, y: 1, z: 0 },
+      radialU: { x: 1, y: 0, z: 0 },
+      radialV: { x: 0, y: 0, z: 1 },
+    },
+    {
+      axis: "z",
+      color: "#2563eb",
+      direction: { x: 0, y: 0, z: 1 },
+      radialU: { x: 1, y: 0, z: 0 },
+      radialV: { x: 0, y: 1, z: 0 },
+    },
+  ];
+  const projectedFaces = axisDefinitions
+    .flatMap((axisDefinition) =>
+      getTrihedronAxisFaces(axisDefinition, worldUnitsPerPixel),
+    )
+    .map((face) => {
+      const projected = face.vertices.map(projectWorldPointToIsometric);
+      return {
+        ...face,
+        projected,
+        depth:
+          projected.reduce((sum, point) => sum + point.depth, 0) /
+          projected.length,
+      };
+    })
+    .sort((first, second) => first.depth - second.depth);
+
+  projectedFaces.forEach((face) => {
+    const polygon = createSvgElement("polygon", {
+      points: face.projected.map((point) => `${point.x},${point.y}`).join(" "),
+      class: `trihedron-face trihedron-${face.axis}`,
+      fill: shadeHexColor(face.baseColor, face.shade),
+      stroke: shadeHexColor(face.baseColor, 0.55),
+      "data-axis": face.axis,
+      "data-part": face.part,
+      "aria-hidden": "true",
+    });
+    trihedronLayer.appendChild(polygon);
+  });
+}
+
+function updateTrihedronMenuState() {
+  const available = is3dWorkspace();
+  showTrihedronMenu.disabled = !available;
+  showTrihedronMenu.classList.toggle(
+    "current-menu-option",
+    trihedronState.visible,
+  );
+  showTrihedronMenu.setAttribute("aria-pressed", String(trihedronState.visible));
+  showTrihedronMenu.title = available
+    ? trihedronState.visible
+      ? "Hide the world-axis trihedron"
+      : "Show the world-axis trihedron"
+    : "Available in the 3D workspace";
+}
+
+function toggleTrihedronVisibility() {
+  dismissViewMenu();
+  if (!is3dWorkspace()) {
+    commandStatus.textContent = "Show Trihedron is available in the 3D workspace.";
+    return;
+  }
+  trihedronState.visible = !trihedronState.visible;
+  updateTrihedronMenuState();
+  renderTrihedron();
+  commandStatus.textContent = trihedronState.visible
+    ? "View: World-axis trihedron shown at X0 Y0 Z0."
+    : "View: World-axis trihedron hidden.";
+}
+
+function getSolidDescription(solid) {
+  const solidKind = solid.kind ?? solid.primitive ?? "Solid";
+  if (solid.definition?.type === "box") {
+    const { length, width, height } = solid.definition.dimensions;
+    return (
+      `${solidKind} ${solid.id}: ` +
+      `${formatLengthResult(length)} × ${formatLengthResult(width)} × ` +
+      formatLengthResult(height)
+    );
+  }
+  return `${solidKind} ${solid.id}`;
+}
+
+function renderModelSolids() {
+  modelLayer.innerHTML = "";
+  modelLayer.toggleAttribute("hidden", !isometricViewState.active);
+  if (!isometricViewState.active) return;
+
+  const faceRecords = [];
+  documentModel.model3d.solids.forEach((solid) => {
+    if (!isEntityLayerVisible(solid)) return;
+    const vertices = getSolidWorldVertices(solid);
+    const faces = getSolidFaceRecords(solid);
+    if (!vertices.length || !Array.isArray(faces)) return;
+    const reversesWinding =
+      getMatrix3Determinant(normalizeSolidTransform(solid).matrix) < 0;
+    faces.forEach((face) => {
+      const faceIndices = reversesWinding
+        ? [...face.vertexIndices].reverse()
+        : face.vertexIndices;
+      if (
+        !Array.isArray(faceIndices) ||
+        faceIndices.length < 3 ||
+        faceIndices.some(
+          (vertexIndex) =>
+            !Number.isInteger(vertexIndex) || !vertices[vertexIndex],
+        )
+      ) {
+        return;
+      }
+      const projected = faceIndices.map((vertexIndex) =>
+        projectWorldPointToIsometric(vertices[vertexIndex]),
+      );
+      faceRecords.push({
+        solid,
+        faceId: face.id,
+        faceName: face.name,
+        faceIndex: face.faceIndex,
+        projected,
+        depth:
+          projected.reduce((sum, point) => sum + point.depth, 0) /
+          projected.length,
+      });
+    });
+  });
+
+  faceRecords
+    .sort((first, second) => first.depth - second.depth)
+    .forEach(({ solid, faceId, faceName, faceIndex, projected }) => {
+      const isSelected = modelSelectionState.selectedSolidIds.has(solid.id);
+      const isSelectedFace =
+        modelSelectionState.selectedFace?.solidId === solid.id &&
+        (modelSelectionState.selectedFace?.faceId === faceId ||
+          modelSelectionState.selectedFace?.faceIndex === faceIndex);
+      const polygon = createSvgElement("polygon", {
+        points: projected.map((point) => `${point.x},${point.y}`).join(" "),
+        class: [
+          "solid-face",
+          isSelected ? "is-selected" : "",
+          isSelectedFace ? "is-selected-face" : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+        "data-solid-id": solid.id,
+        "data-face-index": faceIndex,
+        "data-face-id": faceId,
+        "data-layer-id": getEntityLayerId(solid),
+      });
+      const title = createSvgElement("title", {});
+      title.textContent = `${getSolidDescription(solid)}, ${faceName.toLowerCase()} face`;
+      polygon.appendChild(title);
+      modelLayer.appendChild(polygon);
+    });
+}
+
 function renderEntities() {
+  documentModel.entities.forEach((entity) => {
+    if (!Number.isInteger(entity.layerId)) entity.layerId = 0;
+  });
+  renderLayerMenu();
   syncViewportToDocument();
   clearEntityHoverInfo();
   selectionState.hoveredEntityId = null;
   entityLayer.innerHTML = "";
 
-  documentModel.entities.forEach((entity) => {
+  documentModel.entities.filter(isEntityLayerVisible).forEach((entity) => {
     if (entity.type === "line") renderLineEntity(entity);
     if (entity.type === "circle") renderCircleEntity(entity);
     if (entity.type === "arc") renderArcEntity(entity);
+    if (entity.type === "text") renderTextEntity(entity);
   });
 
-  documentModel.entities.forEach((entity) => {
+  documentModel.entities.filter(isEntityLayerVisible).forEach((entity) => {
     if (entity.type === "point" && !entity.isConstruction) renderPoint(entity);
   });
 
-  documentModel.entities.forEach((entity) => {
+  documentModel.entities.filter(isEntityLayerVisible).forEach((entity) => {
     if (entity.type === "dimension") renderDimensionEntity(entity);
   });
 
+  renderModelSolids();
+  renderTrihedron();
+
   renderToolPreview();
   const visibleEntityCount = documentModel.entities.filter(
-    (entity) => entity.type !== "point" || !entity.isConstruction,
+    (entity) =>
+      isEntityLayerVisible(entity) &&
+      (entity.type !== "point" || !entity.isConstruction),
   ).length;
-  entityCount.textContent = `Entities: ${visibleEntityCount}`;
+  const visibleSolidCount = documentModel.model3d.solids.filter(
+    isEntityLayerVisible,
+  ).length;
+  entityCount.textContent = is3dWorkspace()
+    ? `Profiles: ${visibleEntityCount}  Solids: ${visibleSolidCount}`
+    : `Entities: ${visibleEntityCount}`;
   updateEditMenuState();
 }
 
@@ -3372,6 +6794,7 @@ function addPoint(x, y) {
   const point = {
     id: documentModel.nextEntityId,
     type: "point",
+    layerId: documentModel.currentLayerId,
     x,
     y,
   };
@@ -3396,7 +6819,7 @@ function addJoinLine(startPointId, endPointId) {
 
 function findLineAtCoordinates(start, end) {
   return documentModel.entities.find((entity) => {
-    if (entity.type !== "line") return false;
+    if (entity.type !== "line" || !isEntityOnCurrentLayer(entity)) return false;
     const endpoints = getLineEndpointPair(entity);
     if (!endpoints) return false;
     const matchesForward =
@@ -3411,10 +6834,33 @@ function findLineAtCoordinates(start, end) {
 
 function addCoordinateLine(start, end) {
   const newPointCount =
-    (findExistingPointAt(start) ? 0 : 1) +
-    (findExistingPointAt(end) ? 0 : 1);
+    (findExistingPointAt(start) ? 0 : 1) + (findExistingPointAt(end) ? 0 : 1);
   const lineId = documentModel.nextEntityId + newPointCount + 2;
   recordDocumentChange(`Create coordinate line ${lineId}`);
+  const startPoint = getOrCreatePointWithoutHistory(start);
+  const endPoint = getOrCreatePointWithoutHistory(end);
+  const { line } = createIndependentLineWithoutHistory(start, end);
+  renderEntities();
+  return { line, startPoint, endPoint };
+}
+
+function addAngleLine(start, end) {
+  const newPointCount =
+    (findExistingPointAt(start) ? 0 : 1) + (findExistingPointAt(end) ? 0 : 1);
+  const lineId = documentModel.nextEntityId + newPointCount + 2;
+  recordDocumentChange(`Create angled line ${lineId}`);
+  const startPoint = getOrCreatePointWithoutHistory(start);
+  const endPoint = getOrCreatePointWithoutHistory(end);
+  const { line } = createIndependentLineWithoutHistory(start, end);
+  renderEntities();
+  return { line, startPoint, endPoint };
+}
+
+function addTangentLine(start, end) {
+  const newPointCount =
+    (findExistingPointAt(start) ? 0 : 1) + (findExistingPointAt(end) ? 0 : 1);
+  const lineId = documentModel.nextEntityId + newPointCount + 2;
+  recordDocumentChange(`Create tangent line ${lineId}`);
   const startPoint = getOrCreatePointWithoutHistory(start);
   const endPoint = getOrCreatePointWithoutHistory(end);
   const { line } = createIndependentLineWithoutHistory(start, end);
@@ -3427,6 +6873,7 @@ function addCircle(centerPointId, radius) {
   const circle = {
     id: documentModel.nextEntityId,
     type: "circle",
+    layerId: documentModel.currentLayerId,
     centerPointId,
     radius,
   };
@@ -3446,6 +6893,7 @@ function addCoordinateCircle(center, radius) {
   const circle = {
     id: documentModel.nextEntityId,
     type: "circle",
+    layerId: documentModel.currentLayerId,
     centerPointId: centerPoint.id,
     radius,
   };
@@ -3457,14 +6905,14 @@ function addCoordinateCircle(center, radius) {
 
 function addApolloniusCircle(center, radius) {
   const existingCenterPoint = findExistingPointAt(center);
-  const circleId =
-    documentModel.nextEntityId + (existingCenterPoint ? 0 : 1);
+  const circleId = documentModel.nextEntityId + (existingCenterPoint ? 0 : 1);
   recordDocumentChange(`Create 3-entity circle ${circleId}`);
   const centerPoint =
     existingCenterPoint ?? getOrCreatePointWithoutHistory(center);
   const circle = {
     id: documentModel.nextEntityId,
     type: "circle",
+    layerId: documentModel.currentLayerId,
     centerPointId: centerPoint.id,
     radius,
   };
@@ -3474,13 +6922,12 @@ function addApolloniusCircle(center, radius) {
   return { circle, centerPoint };
 }
 
-function addHexagon(centerPoint, acrossFlats, cornerRadius) {
-  recordDocumentChange(`Create hexagon at point ${centerPoint.id}`);
-  const geometry = getHexagonGeometry(
-    centerPoint,
-    acrossFlats,
-    cornerRadius,
-  );
+function addHexagon(center, acrossFlats, cornerRadius) {
+  const centerLabel = Number.isInteger(center.id)
+    ? `point ${center.id}`
+    : `X${formatLengthResult(center.x)} Y${formatLengthResult(center.y)}`;
+  recordDocumentChange(`Create hexagon at ${centerLabel}`);
+  const geometry = getHexagonGeometry(center, acrossFlats, cornerRadius);
   const createdLines = [];
   const createdArcs = [];
 
@@ -3488,6 +6935,7 @@ function addHexagon(centerPoint, acrossFlats, cornerRadius) {
     const line = {
       id: documentModel.nextEntityId,
       type: "line",
+      layerId: documentModel.currentLayerId,
       startPointId,
       endPointId,
     };
@@ -3500,6 +6948,7 @@ function addHexagon(centerPoint, acrossFlats, cornerRadius) {
     const arc = {
       id: documentModel.nextEntityId,
       type: "arc",
+      layerId: documentModel.currentLayerId,
       centerPointId,
       startPointId,
       endPointId,
@@ -3545,7 +6994,7 @@ function addHexagon(centerPoint, acrossFlats, cornerRadius) {
 
 function addRectangle(center, xSize, ySize, radius) {
   recordDocumentChange(
-    `Create ${formatArithmeticResult(xSize)} x ${formatArithmeticResult(ySize)} rectangle at X${formatArithmeticResult(center.x)} Y${formatArithmeticResult(center.y)}`,
+    `Create ${formatLengthResult(xSize)} x ${formatLengthResult(ySize)} rectangle at X${formatLengthResult(center.x)} Y${formatLengthResult(center.y)}`,
   );
   const geometry = getRectangleGeometry(center, xSize, ySize, radius);
   const createdLines = geometry.lines.map(
@@ -3558,6 +7007,7 @@ function addRectangle(center, xSize, ySize, radius) {
     const arc = {
       id: documentModel.nextEntityId,
       type: "arc",
+      layerId: documentModel.currentLayerId,
       centerPointId: centerReference.id,
       startPointId: startReference.id,
       endPointId: endReference.id,
@@ -3572,22 +7022,24 @@ function addRectangle(center, xSize, ySize, radius) {
   return { lines: createdLines, arcs: createdArcs };
 }
 
-function getBoltHoleCenters(boltHoleDiameter, holeCount) {
+function getBoltHoleCenters(center, boltHoleDiameter, holeCount) {
   const boltHoleRadius = boltHoleDiameter / 2;
   return Array.from({ length: holeCount }, (_, index) => {
     const angle = (index * Math.PI * 2) / holeCount;
     const rawX = boltHoleRadius * Math.cos(angle);
     const rawY = boltHoleRadius * Math.sin(angle);
     return {
-      x: Math.abs(rawX) <= 1e-12 ? 0 : rawX,
-      y: Math.abs(rawY) <= 1e-12 ? 0 : rawY,
+      x: center.x + (Math.abs(rawX) <= 1e-12 ? 0 : rawX),
+      y: center.y + (Math.abs(rawY) <= 1e-12 ? 0 : rawY),
     };
   });
 }
 
-function addBoltHoleCircle(boltHoleDiameter, holeCount, holeDiameter) {
-  recordDocumentChange(`Create ${holeCount}-position bolt hole circle`);
-  const centers = getBoltHoleCenters(boltHoleDiameter, holeCount);
+function addBoltHoleCircle(center, boltHoleDiameter, holeCount, holeDiameter) {
+  recordDocumentChange(
+    `Create ${holeCount}-position bolt hole circle at X${formatLengthResult(center.x)} Y${formatLengthResult(center.y)}`,
+  );
+  const centers = getBoltHoleCenters(center, boltHoleDiameter, holeCount);
   const createdPoints = [];
   const createdCircles = [];
 
@@ -3596,6 +7048,7 @@ function addBoltHoleCircle(boltHoleDiameter, holeCount, holeDiameter) {
       const point = {
         id: documentModel.nextEntityId,
         type: "point",
+        layerId: documentModel.currentLayerId,
         x: center.x,
         y: center.y,
       };
@@ -3609,6 +7062,7 @@ function addBoltHoleCircle(boltHoleDiameter, holeCount, holeDiameter) {
     const circle = {
       id: documentModel.nextEntityId,
       type: "circle",
+      layerId: documentModel.currentLayerId,
       centerPointId: centerReference.id,
       radius: holeDiameter / 2,
     };
@@ -3619,6 +7073,340 @@ function addBoltHoleCircle(boltHoleDiameter, holeCount, holeDiameter) {
 
   renderEntities();
   return { points: createdPoints, circles: createdCircles };
+}
+
+function getLinearDimensionEntityData(entity) {
+  if (!entity) return null;
+  if (entity.type === "point") {
+    return Number.isFinite(entity.x) && Number.isFinite(entity.y)
+      ? { kind: "point", point: entity }
+      : null;
+  }
+  if (entity.type === "line") {
+    const endpoints = getLineEndpointPair(entity);
+    return endpoints ? { kind: "line", ...endpoints } : null;
+  }
+  if (entity.type === "circle") {
+    const centerPoint = getPointById(entity.centerPointId);
+    return centerPoint && Number.isFinite(entity.radius)
+      ? { kind: "circle", centerPoint, radius: entity.radius }
+      : null;
+  }
+  if (entity.type === "arc") {
+    const centerPoint = getPointById(entity.centerPointId);
+    const startPoint = getPointById(entity.startPointId);
+    const endPoint = getPointById(entity.endPointId);
+    if (
+      !centerPoint ||
+      !startPoint ||
+      !endPoint ||
+      !Number.isFinite(entity.radius)
+    ) {
+      return null;
+    }
+    return {
+      kind: "arc",
+      centerPoint,
+      startPoint,
+      endPoint,
+      radius: entity.radius,
+      startAngle: Math.atan2(
+        startPoint.y - centerPoint.y,
+        startPoint.x - centerPoint.x,
+      ),
+      endAngle: Math.atan2(
+        endPoint.y - centerPoint.y,
+        endPoint.x - centerPoint.x,
+      ),
+    };
+  }
+  return null;
+}
+
+function getClosestPointOnLinearDimensionEntity(
+  entity,
+  targetPoint,
+  fallbackPoint = targetPoint,
+) {
+  const data = getLinearDimensionEntityData(entity);
+  if (!data || !targetPoint) return null;
+  if (data.kind === "point") {
+    return { x: data.point.x, y: data.point.y };
+  }
+  if (data.kind === "line") {
+    const direction = {
+      x: data.endPoint.x - data.startPoint.x,
+      y: data.endPoint.y - data.startPoint.y,
+    };
+    const lengthSquared = dotProduct(direction, direction);
+    if (lengthSquared <= GEOMETRY_EPSILON ** 2) {
+      return { x: data.startPoint.x, y: data.startPoint.y };
+    }
+    const parameter = Math.max(
+      0,
+      Math.min(
+        1,
+        dotProduct(
+          {
+            x: targetPoint.x - data.startPoint.x,
+            y: targetPoint.y - data.startPoint.y,
+          },
+          direction,
+        ) / lengthSquared,
+      ),
+    );
+    return {
+      x: data.startPoint.x + direction.x * parameter,
+      y: data.startPoint.y + direction.y * parameter,
+    };
+  }
+
+  let radialDirection = {
+    x: targetPoint.x - data.centerPoint.x,
+    y: targetPoint.y - data.centerPoint.y,
+  };
+  let radialLength = Math.hypot(radialDirection.x, radialDirection.y);
+  if (radialLength <= GEOMETRY_EPSILON && fallbackPoint) {
+    radialDirection = {
+      x: fallbackPoint.x - data.centerPoint.x,
+      y: fallbackPoint.y - data.centerPoint.y,
+    };
+    radialLength = Math.hypot(radialDirection.x, radialDirection.y);
+  }
+  const angle =
+    radialLength <= GEOMETRY_EPSILON
+      ? 0
+      : Math.atan2(radialDirection.y, radialDirection.x);
+  if (
+    data.kind === "circle" ||
+    isAngleOnCounterClockwiseArc(angle, data.startAngle, data.endAngle)
+  ) {
+    return {
+      x: data.centerPoint.x + Math.cos(angle) * data.radius,
+      y: data.centerPoint.y + Math.sin(angle) * data.radius,
+    };
+  }
+  const startDistance = squaredDistance(targetPoint, data.startPoint);
+  const endDistance = squaredDistance(targetPoint, data.endPoint);
+  const endpoint =
+    Math.abs(startDistance - endDistance) <= GEOMETRY_EPSILON && fallbackPoint
+      ? squaredDistance(fallbackPoint, data.startPoint) <=
+        squaredDistance(fallbackPoint, data.endPoint)
+        ? data.startPoint
+        : data.endPoint
+      : startDistance <= endDistance
+        ? data.startPoint
+        : data.endPoint;
+  return { x: endpoint.x, y: endpoint.y };
+}
+
+function getLinearDimensionEntityEndpoints(entity) {
+  const data = getLinearDimensionEntityData(entity);
+  if (!data) return [];
+  if (data.kind === "point") return [data.point];
+  if (data.kind === "line" || data.kind === "arc") {
+    return [data.startPoint, data.endPoint];
+  }
+  return [];
+}
+
+function isPointOnLinearDimensionEntity(entity, point) {
+  const closestPoint = getClosestPointOnLinearDimensionEntity(entity, point);
+  return closestPoint !== null && squaredDistance(closestPoint, point) <= 1e-14;
+}
+
+function getLinearDimensionEntityIntersections(firstEntity, secondEntity) {
+  if (firstEntity.type === "point") {
+    return isPointOnLinearDimensionEntity(secondEntity, firstEntity)
+      ? [{ x: firstEntity.x, y: firstEntity.y }]
+      : [];
+  }
+  if (secondEntity.type === "point") {
+    return isPointOnLinearDimensionEntity(firstEntity, secondEntity)
+      ? [{ x: secondEntity.x, y: secondEntity.y }]
+      : [];
+  }
+  const result = getEntityIntersections(firstEntity, secondEntity);
+  return result.points.filter(
+    (point) =>
+      isPointOnLinearDimensionEntity(firstEntity, point) &&
+      isPointOnLinearDimensionEntity(secondEntity, point),
+  );
+}
+
+function getLinearDimensionBetweenEntities(
+  firstEntity,
+  secondEntity,
+  firstPick,
+  secondPick,
+) {
+  const firstData = getLinearDimensionEntityData(firstEntity);
+  const secondData = getLinearDimensionEntityData(secondEntity);
+  if (!firstData || !secondData) return null;
+
+  const candidates = [];
+  const addCandidate = (firstPoint, secondPoint) => {
+    if (
+      !firstPoint ||
+      !secondPoint ||
+      !Number.isFinite(firstPoint.x) ||
+      !Number.isFinite(firstPoint.y) ||
+      !Number.isFinite(secondPoint.x) ||
+      !Number.isFinite(secondPoint.y)
+    ) {
+      return;
+    }
+    candidates.push({
+      firstPoint: { x: firstPoint.x, y: firstPoint.y },
+      secondPoint: { x: secondPoint.x, y: secondPoint.y },
+      distanceSquared: squaredDistance(firstPoint, secondPoint),
+      pickScore:
+        squaredDistance(firstPoint, firstPick) +
+        squaredDistance(secondPoint, secondPick),
+    });
+  };
+
+  getLinearDimensionEntityIntersections(firstEntity, secondEntity).forEach(
+    (point) => addCandidate(point, point),
+  );
+
+  getLinearDimensionEntityEndpoints(firstEntity).forEach((firstPoint) => {
+    addCandidate(
+      firstPoint,
+      getClosestPointOnLinearDimensionEntity(
+        secondEntity,
+        firstPoint,
+        secondPick,
+      ),
+    );
+  });
+  getLinearDimensionEntityEndpoints(secondEntity).forEach((secondPoint) => {
+    addCandidate(
+      getClosestPointOnLinearDimensionEntity(
+        firstEntity,
+        secondPoint,
+        firstPick,
+      ),
+      secondPoint,
+    );
+  });
+
+  const firstPickedPoint = getClosestPointOnLinearDimensionEntity(
+    firstEntity,
+    firstPick,
+    secondPick,
+  );
+  const secondFromFirst = getClosestPointOnLinearDimensionEntity(
+    secondEntity,
+    firstPickedPoint,
+    secondPick,
+  );
+  addCandidate(
+    getClosestPointOnLinearDimensionEntity(
+      firstEntity,
+      secondFromFirst,
+      firstPick,
+    ),
+    secondFromFirst,
+  );
+
+  const secondPickedPoint = getClosestPointOnLinearDimensionEntity(
+    secondEntity,
+    secondPick,
+    firstPick,
+  );
+  const firstFromSecond = getClosestPointOnLinearDimensionEntity(
+    firstEntity,
+    secondPickedPoint,
+    firstPick,
+  );
+  addCandidate(
+    firstFromSecond,
+    getClosestPointOnLinearDimensionEntity(
+      secondEntity,
+      firstFromSecond,
+      secondPick,
+    ),
+  );
+
+  const firstIsRadial = firstData.kind === "circle" || firstData.kind === "arc";
+  const secondIsRadial =
+    secondData.kind === "circle" || secondData.kind === "arc";
+  if (firstData.kind === "line" && secondIsRadial) {
+    const linePoint = getClosestPointOnLinearDimensionEntity(
+      firstEntity,
+      secondData.centerPoint,
+      firstPick,
+    );
+    addCandidate(
+      linePoint,
+      getClosestPointOnLinearDimensionEntity(
+        secondEntity,
+        linePoint,
+        secondPick,
+      ),
+    );
+  }
+  if (secondData.kind === "line" && firstIsRadial) {
+    const linePoint = getClosestPointOnLinearDimensionEntity(
+      secondEntity,
+      firstData.centerPoint,
+      secondPick,
+    );
+    addCandidate(
+      getClosestPointOnLinearDimensionEntity(firstEntity, linePoint, firstPick),
+      linePoint,
+    );
+  }
+  if (firstIsRadial && secondIsRadial) {
+    const firstPoint = getClosestPointOnLinearDimensionEntity(
+      firstEntity,
+      secondData.centerPoint,
+      firstPick,
+    );
+    const secondPoint = getClosestPointOnLinearDimensionEntity(
+      secondEntity,
+      firstPoint,
+      secondPick,
+    );
+    addCandidate(
+      getClosestPointOnLinearDimensionEntity(
+        firstEntity,
+        secondPoint,
+        firstPick,
+      ),
+      secondPoint,
+    );
+
+    const reverseSecondPoint = getClosestPointOnLinearDimensionEntity(
+      secondEntity,
+      firstData.centerPoint,
+      secondPick,
+    );
+    const reverseFirstPoint = getClosestPointOnLinearDimensionEntity(
+      firstEntity,
+      reverseSecondPoint,
+      firstPick,
+    );
+    addCandidate(
+      reverseFirstPoint,
+      getClosestPointOnLinearDimensionEntity(
+        secondEntity,
+        reverseFirstPoint,
+        secondPick,
+      ),
+    );
+  }
+
+  if (!candidates.length) return null;
+  candidates.sort((first, second) => {
+    const distanceDifference = first.distanceSquared - second.distanceSquared;
+    if (Math.abs(distanceDifference) > GEOMETRY_EPSILON ** 2) {
+      return distanceDifference;
+    }
+    return first.pickScore - second.pickScore;
+  });
+  return candidates[0];
 }
 
 function addLinearDimension(startPoint, endPoint) {
@@ -3639,6 +7427,7 @@ function addLinearDimension(startPoint, endPoint) {
   const dimension = {
     id: documentModel.nextEntityId,
     type: "dimension",
+    layerId: documentModel.currentLayerId,
     dimensionType: "linear",
     startX: startPoint.x,
     startY: startPoint.y,
@@ -3663,6 +7452,7 @@ function addRadialDimension(sourceEntity, dimensionType, angle) {
   const dimension = {
     id: documentModel.nextEntityId,
     type: "dimension",
+    layerId: documentModel.currentLayerId,
     dimensionType,
     centerX: centerPoint.x,
     centerY: centerPoint.y,
@@ -3749,7 +7539,9 @@ function addAngleDimension(firstLine, secondLine, firstPick, secondPick) {
     return { dimension: null, reason: "collinear" };
   }
 
-  const firstPickRadius = Math.sqrt(squaredDistance(firstPick, intersection.point));
+  const firstPickRadius = Math.sqrt(
+    squaredDistance(firstPick, intersection.point),
+  );
   const secondPickRadius = Math.sqrt(
     squaredDistance(secondPick, intersection.point),
   );
@@ -3760,6 +7552,7 @@ function addAngleDimension(firstLine, secondLine, firstPick, secondPick) {
   const dimension = {
     id: documentModel.nextEntityId,
     type: "dimension",
+    layerId: documentModel.currentLayerId,
     dimensionType: "angle",
     centerX: intersection.point.x,
     centerY: intersection.point.y,
@@ -3784,12 +7577,14 @@ function addOffsetLine(start, end) {
   const startPoint = {
     id: startPointId,
     type: "point",
+    layerId: documentModel.currentLayerId,
     x: start.x,
     y: start.y,
   };
   const endPoint = {
     id: endPointId,
     type: "point",
+    layerId: documentModel.currentLayerId,
     x: end.x,
     y: end.y,
   };
@@ -3805,6 +7600,7 @@ function addOffsetCircle(centerPointId, radius) {
   const circle = {
     id: documentModel.nextEntityId,
     type: "circle",
+    layerId: documentModel.currentLayerId,
     centerPointId,
     radius,
   };
@@ -3836,11 +7632,7 @@ function squaredDistance(a, b) {
 const APOLLONIUS_TOLERANCE = 1e-7;
 
 function dotProduct3(first, second) {
-  return (
-    first[0] * second[0] +
-    first[1] * second[1] +
-    first[2] * second[2]
-  );
+  return first[0] * second[0] + first[1] * second[1] + first[2] * second[2];
 }
 
 function crossProduct3(first, second) {
@@ -3887,9 +7679,7 @@ function getApolloniusConstraint(entity) {
       kind: "line",
       a: -dy / length,
       b: dx / length,
-      c:
-        (dy * endpoints.startPoint.x - dx * endpoints.startPoint.y) /
-        length,
+      c: (dy * endpoints.startPoint.x - dx * endpoints.startPoint.y) / length,
     };
   }
 
@@ -3897,21 +7687,20 @@ function getApolloniusConstraint(entity) {
 }
 
 function getApolloniusSignBranches(constraints) {
-  return constraints.reduce((branches, constraint) => {
-    const signs = constraint.kind === "circle" && constraint.isPoint
-      ? [1]
-      : [-1, 1];
-    return branches.flatMap((branch) =>
-      signs.map((sign) => [...branch, sign]),
-    );
-  }, [[]]);
+  return constraints.reduce(
+    (branches, constraint) => {
+      const signs =
+        constraint.kind === "circle" && constraint.isPoint ? [1] : [-1, 1];
+      return branches.flatMap((branch) =>
+        signs.map((sign) => [...branch, sign]),
+      );
+    },
+    [[]],
+  );
 }
 
 function solveLinearSystem3(matrix, values) {
-  const augmented = matrix.map((row, index) => [
-    ...row,
-    values[index],
-  ]);
+  const augmented = matrix.map((row, index) => [...row, values[index]]);
   const matrixScale = Math.max(
     1,
     ...matrix.flat().map((value) => Math.abs(value)),
@@ -3920,7 +7709,9 @@ function solveLinearSystem3(matrix, values) {
   for (let column = 0; column < 3; column += 1) {
     let pivotRow = column;
     for (let row = column + 1; row < 3; row += 1) {
-      if (Math.abs(augmented[row][column]) > Math.abs(augmented[pivotRow][column])) {
+      if (
+        Math.abs(augmented[row][column]) > Math.abs(augmented[pivotRow][column])
+      ) {
         pivotRow = row;
       }
     }
@@ -3982,8 +7773,7 @@ function solveQuadraticReal(coefficientA, coefficientB, coefficientC) {
   }
 
   let discriminant =
-    coefficientB * coefficientB -
-    4 * coefficientA * coefficientC;
+    coefficientB * coefficientB - 4 * coefficientA * coefficientC;
   const discriminantTolerance =
     1e-12 *
     Math.max(
@@ -4055,8 +7845,7 @@ function isApolloniusBranchSolutionValid(solution, constraints, signs) {
     );
     const tolerance = APOLLONIUS_TOLERANCE * scale;
     if (constraint.kind === "line") {
-      const signedDistance =
-        constraint.a * x + constraint.b * y + constraint.c;
+      const signedDistance = constraint.a * x + constraint.b * y + constraint.c;
       return Math.abs(signedDistance - signs[index] * radius) <= tolerance;
     }
 
@@ -4091,7 +7880,8 @@ function addUniqueApolloniusCandidate(candidates, solution) {
       Math.hypot(
         candidate.center[0] - existing.center[0],
         candidate.center[1] - existing.center[1],
-      ) <= APOLLONIUS_TOLERANCE * scale &&
+      ) <=
+        APOLLONIUS_TOLERANCE * scale &&
       Math.abs(candidate.radius - existing.radius) <=
         APOLLONIUS_TOLERANCE * scale,
   );
@@ -4148,12 +7938,10 @@ function solveApolloniusThreeEntities(entities) {
     if (!parameterLine) return;
 
     const [originX, originY, originRadius] = parameterLine.origin;
-    const [directionX, directionY, directionRadius] =
-      parameterLine.direction;
+    const [directionX, directionY, directionRadius] = parameterLine.direction;
     const offsetX = originX - baseConstraint.x;
     const offsetY = originY - baseConstraint.y;
-    const signedBaseRadius =
-      originRadius + baseSign * baseConstraint.radius;
+    const signedBaseRadius = originRadius + baseSign * baseConstraint.radius;
     const coefficientA =
       directionX * directionX +
       directionY * directionY -
@@ -4168,20 +7956,18 @@ function solveApolloniusThreeEntities(entities) {
       offsetY * offsetY -
       signedBaseRadius * signedBaseRadius;
 
-    solveQuadraticReal(
-      coefficientA,
-      coefficientB,
-      coefficientC,
-    ).forEach((parameter) => {
-      const solution = [
-        originX + directionX * parameter,
-        originY + directionY * parameter,
-        originRadius + directionRadius * parameter,
-      ];
-      if (isApolloniusBranchSolutionValid(solution, constraints, signs)) {
-        addUniqueApolloniusCandidate(candidates, solution);
-      }
-    });
+    solveQuadraticReal(coefficientA, coefficientB, coefficientC).forEach(
+      (parameter) => {
+        const solution = [
+          originX + directionX * parameter,
+          originY + directionY * parameter,
+          originRadius + directionRadius * parameter,
+        ];
+        if (isApolloniusBranchSolutionValid(solution, constraints, signs)) {
+          addUniqueApolloniusCandidate(candidates, solution);
+        }
+      },
+    );
   });
 
   return candidates;
@@ -4251,9 +8037,7 @@ function selectApolloniusCandidate(candidates, entities, mouseClicks) {
     .filter(Boolean);
   if (!scoredCandidates.length) return null;
 
-  const lowestScore = Math.min(
-    ...scoredCandidates.map(({ score }) => score),
-  );
+  const lowestScore = Math.min(...scoredCandidates.map(({ score }) => score));
   return scoredCandidates
     .filter(({ score }) => score <= lowestScore + 1e-6)
     .sort(
@@ -4337,6 +8121,22 @@ function distanceToEntityGeometry(entity, worldPoint) {
     );
   }
 
+  if (entity.type === "text") {
+    const bounds = getTextEntityBounds(entity);
+    if (!bounds) return Number.POSITIVE_INFINITY;
+    const deltaX = Math.max(
+      bounds.minX - worldPoint.x,
+      0,
+      worldPoint.x - bounds.maxX,
+    );
+    const deltaY = Math.max(
+      bounds.minY - worldPoint.y,
+      0,
+      worldPoint.y - bounds.maxY,
+    );
+    return Math.hypot(deltaX, deltaY);
+  }
+
   if (entity.type === "dimension") {
     if (entity.dimensionType === "linear") {
       return distanceToLineSegment(
@@ -4349,7 +8149,10 @@ function distanceToEntityGeometry(entity, worldPoint) {
       entity.dimensionType === "radius" ||
       entity.dimensionType === "diameter"
     ) {
-      const direction = { x: Math.cos(entity.angle), y: Math.sin(entity.angle) };
+      const direction = {
+        x: Math.cos(entity.angle),
+        y: Math.sin(entity.angle),
+      };
       const positiveEnd = {
         x: entity.centerX + direction.x * entity.radius,
         y: entity.centerY + direction.y * entity.radius,
@@ -4418,15 +8221,28 @@ function getWorldUnitsPerScreenPixel() {
 function getSelectionHitCandidates(worldPoint, target) {
   const tolerance = 10 * getWorldUnitsPerScreenPixel();
   const directEntityElement = target?.closest?.(
-    ".point-entity, .line-entity, .circle-entity, .arc-entity, .dimension-entity",
+    ".point-entity, .line-entity, .circle-entity, .arc-entity, .text-entity, .dimension-entity",
   );
   const directEntityId = directEntityElement
     ? Number(directEntityElement.dataset.entityId)
     : null;
-  const typePriority = { point: 0, arc: 1, line: 2, circle: 3, dimension: 4 };
+  const typePriority = {
+    point: 0,
+    arc: 1,
+    line: 2,
+    circle: 3,
+    text: 4,
+    dimension: 5,
+  };
 
   return documentModel.entities
-    .filter((entity) => entity.type !== "point" || !entity.isConstruction)
+    .filter(
+      (entity) =>
+        isCurrentLayerEditable() &&
+        isEntityOnCurrentLayer(entity) &&
+        isEntityLayerVisible(entity) &&
+        (entity.type !== "point" || !entity.isConstruction),
+    )
     .map((entity) => ({
       entity,
       distance: distanceToEntityGeometry(entity, worldPoint),
@@ -4466,6 +8282,7 @@ function findExistingPointAt(worldPoint) {
     (entity) =>
       entity.type === "point" &&
       !entity.isConstruction &&
+      isEntityOnCurrentLayer(entity) &&
       squaredDistance(entity, worldPoint) <= 1e-14,
   );
 }
@@ -4477,6 +8294,7 @@ function getOrCreatePointWithoutHistory(worldPoint) {
   const point = {
     id: documentModel.nextEntityId,
     type: "point",
+    layerId: documentModel.currentLayerId,
     x: worldPoint.x,
     y: worldPoint.y,
   };
@@ -4489,6 +8307,7 @@ function createConstructionPointWithoutHistory(worldPoint) {
   const point = {
     id: documentModel.nextEntityId,
     type: "point",
+    layerId: documentModel.currentLayerId,
     x: worldPoint.x,
     y: worldPoint.y,
     isConstruction: true,
@@ -4504,6 +8323,7 @@ function createIndependentLineWithoutHistory(start, end) {
   const line = {
     id: documentModel.nextEntityId,
     type: "line",
+    layerId: documentModel.currentLayerId,
     startPointId: startReference.id,
     endPointId: endReference.id,
   };
@@ -4532,6 +8352,7 @@ function pruneUnusedConstructionPoints() {
     (entity) =>
       entity.type !== "point" ||
       !entity.isConstruction ||
+      !isEntityOnCurrentLayer(entity) ||
       referencedPointIds.has(entity.id),
   );
 }
@@ -4546,10 +8367,8 @@ function getPointOnRayParameter(origin, direction, point) {
   const lengthSquared = dotProduct(direction, direction);
   if (lengthSquared <= GEOMETRY_EPSILON ** 2) return null;
   return (
-    dotProduct(
-      { x: point.x - origin.x, y: point.y - origin.y },
-      direction,
-    ) / lengthSquared
+    dotProduct({ x: point.x - origin.x, y: point.y - origin.y }, direction) /
+    lengthSquared
   );
 }
 
@@ -4791,9 +8610,7 @@ function intersectCircles(centerA, radiusA, centerB, radiusB) {
     return {
       points: [],
       kind:
-        Math.abs(radiusA - radiusB) <= GEOMETRY_EPSILON
-          ? "overlap"
-          : "none",
+        Math.abs(radiusA - radiusB) <= GEOMETRY_EPSILON ? "overlap" : "none",
     };
   }
   if (
@@ -4804,8 +8621,7 @@ function intersectCircles(centerA, radiusA, centerB, radiusB) {
   }
 
   const along =
-    (radiusA ** 2 - radiusB ** 2 + centerDistance ** 2) /
-    (2 * centerDistance);
+    (radiusA ** 2 - radiusB ** 2 + centerDistance ** 2) / (2 * centerDistance);
   const heightSquared = radiusA ** 2 - along ** 2;
   if (heightSquared < -GEOMETRY_EPSILON) {
     return { points: [], kind: "none" };
@@ -4924,12 +8740,8 @@ function intersectFilletLoci(firstLocus, secondLocus) {
 function getFilletTangentPoint(locus, filletCenter, filletRadius) {
   if (locus.kind === "line") {
     return {
-      x:
-        filletCenter.x -
-        locus.normal.x * filletRadius * locus.normalSign,
-      y:
-        filletCenter.y -
-        locus.normal.y * filletRadius * locus.normalSign,
+      x: filletCenter.x - locus.normal.x * filletRadius * locus.normalSign,
+      y: filletCenter.y - locus.normal.y * filletRadius * locus.normalSign,
     };
   }
 
@@ -4941,8 +8753,12 @@ function getFilletTangentPoint(locus, filletCenter, filletRadius) {
   if (distance <= GEOMETRY_EPSILON) return null;
   const radialSign = Math.sign(locus.signedRadius);
   return {
-    x: locus.center.x + (delta.x / distance) * locus.sourceEntity.radius * radialSign,
-    y: locus.center.y + (delta.y / distance) * locus.sourceEntity.radius * radialSign,
+    x:
+      locus.center.x +
+      (delta.x / distance) * locus.sourceEntity.radius * radialSign,
+    y:
+      locus.center.y +
+      (delta.y / distance) * locus.sourceEntity.radius * radialSign,
   };
 }
 
@@ -4982,10 +8798,7 @@ function getFilletExtensionDistanceSquared(entity, point) {
       startPoint.y - center.y,
       startPoint.x - center.x,
     );
-    const endAngle = Math.atan2(
-      endPoint.y - center.y,
-      endPoint.x - center.x,
-    );
+    const endAngle = Math.atan2(endPoint.y - center.y, endPoint.x - center.x);
     if (isAngleOnCounterClockwiseArc(angle, startAngle, endAngle)) return 0;
     return Math.min(
       squaredDistance(point, startPoint),
@@ -5076,13 +8889,17 @@ function getFilletCandidate(
       candidates.findIndex(
         (other) =>
           squaredDistance(candidate.center, other.center) <= 1e-14 &&
-          squaredDistance(candidate.firstTangent, other.firstTangent) <= 1e-14 &&
-          squaredDistance(candidate.secondTangent, other.secondTangent) <= 1e-14,
+          squaredDistance(candidate.firstTangent, other.firstTangent) <=
+            1e-14 &&
+          squaredDistance(candidate.secondTangent, other.secondTangent) <=
+            1e-14,
       ) === index,
   );
-  return [...uniqueCandidates].sort(
-    (first, second) => first.score - second.score,
-  )[0] ?? null;
+  return (
+    [...uniqueCandidates].sort(
+      (first, second) => first.score - second.score,
+    )[0] ?? null
+  );
 }
 
 function applyFilletTrimExtend(entity, pickWorld, tangentPoint) {
@@ -5092,7 +8909,8 @@ function applyFilletTrimExtend(entity, pickWorld, tangentPoint) {
     const replaceStart =
       squaredDistance(pickWorld, endpoints.startPoint) <=
       squaredDistance(pickWorld, endpoints.endPoint);
-    const replacementPoint = createConstructionPointWithoutHistory(tangentPoint);
+    const replacementPoint =
+      createConstructionPointWithoutHistory(tangentPoint);
     entity[replaceStart ? "startPointId" : "endPointId"] = replacementPoint.id;
     return true;
   }
@@ -5138,16 +8956,13 @@ function createFilletEntity(
   }
 
   const startPoint =
-    candidate.startSource === "first"
-      ? firstTangentPoint
-      : secondTangentPoint;
+    candidate.startSource === "first" ? firstTangentPoint : secondTangentPoint;
   const endPoint =
-    candidate.startSource === "first"
-      ? secondTangentPoint
-      : firstTangentPoint;
+    candidate.startSource === "first" ? secondTangentPoint : firstTangentPoint;
   const filletArc = {
     id: documentModel.nextEntityId,
     type: "arc",
+    layerId: documentModel.currentLayerId,
     centerPointId: centerPoint.id,
     radius: filletRadius,
     startPointId: startPoint.id,
@@ -5202,6 +9017,10 @@ function captureDocumentSnapshot() {
   return {
     entities: documentModel.entities.map((entity) => ({ ...entity })),
     nextEntityId: documentModel.nextEntityId,
+    model3d: clonePlainModelValue(documentModel.model3d),
+    layers: documentModel.layers.map((layer) => ({ ...layer })),
+    currentLayerId: documentModel.currentLayerId,
+    nextLayerId: documentModel.nextLayerId,
   };
 }
 
@@ -5220,16 +9039,47 @@ function recordDocumentChange(label) {
 }
 
 function restoreDocumentSnapshot(snapshot) {
-  documentModel.entities = snapshot.entities.map((entity) => ({ ...entity }));
+  documentModel.entities = snapshot.entities.map((entity) => ({
+    ...entity,
+    layerId: Number.isInteger(entity.layerId) ? entity.layerId : 0,
+  }));
   documentModel.nextEntityId = snapshot.nextEntityId;
+  documentModel.model3d = clonePlainModelValue(
+    snapshot.model3d ?? { solids: [], nextSolidId: 1 },
+  );
+  documentModel.model3d.solids ??= [];
+  documentModel.model3d.nextSolidId = Number.isInteger(
+    documentModel.model3d.nextSolidId,
+  )
+    ? documentModel.model3d.nextSolidId
+    : Math.max(0, ...documentModel.model3d.solids.map((solid) => solid.id)) + 1;
+  documentModel.layers = (
+    snapshot.layers ?? [
+      { id: 0, name: "Layer 0", locked: false, masked: false },
+    ]
+  ).map((layer) => ({ ...layer }));
+  documentModel.currentLayerId = getLayerById(snapshot.currentLayerId)
+    ? snapshot.currentLayerId
+    : documentModel.layers[0].id;
+  documentModel.nextLayerId = Number.isInteger(snapshot.nextLayerId)
+    ? snapshot.nextLayerId
+    : Math.max(...documentModel.layers.map((layer) => layer.id)) + 1;
   selectionState.selectedEntityId = null;
   selectionState.hoveredEntityId = null;
   selectionState.pickCycle = null;
+  clearModelSelection();
   resetChainSelectionPreview();
   pointSketchState.active = false;
   lineSketchState.active = false;
   lineSketchState.startPointId = null;
   lineSketchState.previewWorld = null;
+  lineAngleState.active = false;
+  lineAngleState.sourceEntityId = null;
+  lineAngleState.startPointId = null;
+  lineAngleState.lineBaseAngle = 0;
+  lineTangentState.active = false;
+  lineTangentState.sourceEntityId = null;
+  lineTangentState.centerPointId = null;
   joinState.active = false;
   joinState.firstPointId = null;
   joinState.previewWorld = null;
@@ -5238,6 +9088,13 @@ function restoreDocumentSnapshot(snapshot) {
   circleState.centerMode = null;
   hexagonState.active = false;
   hexagonState.centerPointId = null;
+  hexagonState.centerMode = null;
+  rectangleState.active = false;
+  rectangleState.centerPointId = null;
+  rectangleState.centerMode = null;
+  boltHoleCircleState.active = false;
+  boltHoleCircleState.centerPointId = null;
+  boltHoleCircleState.centerMode = null;
   intersectionState.active = false;
   intersectionState.firstEntityId = null;
   threeEntityCircleState.active = false;
@@ -5254,10 +9111,11 @@ function restoreDocumentSnapshot(snapshot) {
   filletState.firstPickWorld = null;
   rotateState.active = false;
   rotateState.entityId = null;
+  rotateState.solidIds = [];
   rotateState.pivotPointId = null;
   rotateState.awaitingPivot = false;
   dimensionState.activeType = null;
-  dimensionState.firstPointId = null;
+  dimensionState.firstEntityId = null;
   dimensionState.firstLineId = null;
   dimensionState.firstPickWorld = null;
   pointOnEntityState.active = false;
@@ -5266,12 +9124,23 @@ function restoreDocumentSnapshot(snapshot) {
   pointOnEntityState.zeroChoiceIndex = null;
   pointOnEntityState.awaitingDirection = false;
   pointOnEntityState.directionChoices = [];
+  pointEndState.active = false;
+  translateByPointsState.active = false;
+  translateByPointsState.entityIds = [];
+  translateByPointsState.firstPointId = null;
+  translateByPointsState.secondPointId = null;
+  textPlacementState.active = false;
+  textPlacementState.previewWorld = null;
   cadCanvas.classList.remove("join-points");
   cadCanvas.classList.remove("point-sketch");
   cadCanvas.classList.remove("line-sketch");
+  cadCanvas.classList.remove("line-angle");
+  cadCanvas.classList.remove("line-tangent");
   cadCanvas.classList.remove("circle-center-radius");
   cadCanvas.classList.remove("circle-sketch-center");
   cadCanvas.classList.remove("hexagon-center");
+  cadCanvas.classList.remove("rectangle-center");
+  cadCanvas.classList.remove("bolt-hole-circle-center");
   cadCanvas.classList.remove("intersect-entities");
   cadCanvas.classList.remove("apollonius-entities");
   cadCanvas.classList.remove("offset-entity");
@@ -5286,6 +9155,10 @@ function restoreDocumentSnapshot(snapshot) {
   cadCanvas.classList.remove("dimension-angle");
   cadCanvas.classList.remove("point-on-entity");
   cadCanvas.classList.remove("point-on-entity-source-pick");
+  cadCanvas.classList.remove("point-end");
+  cadCanvas.classList.remove("point-end-source-pick");
+  cadCanvas.classList.remove("translate-by-points");
+  cadCanvas.classList.remove("text-placement");
   previewLayer.innerHTML = "";
   if (circleRadiusWindow.classList.contains("is-maximized")) {
     restoreCircleWindow();
@@ -5307,6 +9180,21 @@ function restoreDocumentSnapshot(snapshot) {
   }
   setBoltHoleCircleWindowMinimized(false);
   boltHoleCircleWindow.hidden = true;
+  if (textWindow.classList.contains("is-maximized")) {
+    restoreTextWindow();
+  }
+  setTextWindowMinimized(false);
+  textWindow.hidden = true;
+  if (lineAngleWindow.classList.contains("is-maximized")) {
+    restoreLineAngleWindow();
+  }
+  setLineAngleWindowMinimized(false);
+  lineAngleWindow.hidden = true;
+  if (lineTangentWindow.classList.contains("is-maximized")) {
+    restoreLineTangentWindow();
+  }
+  setLineTangentWindowMinimized(false);
+  lineTangentWindow.hidden = true;
   if (offsetWindow.classList.contains("is-maximized")) {
     restoreOffsetWindow();
   }
@@ -5322,11 +9210,28 @@ function restoreDocumentSnapshot(snapshot) {
   }
   setRotateWindowMinimized(false);
   rotateWindow.hidden = true;
+  if (translateWindow.classList.contains("is-maximized")) {
+    restoreTranslateWindow();
+  }
+  setTranslateWindowMinimized(false);
+  translateWindow.hidden = true;
+  if (translateByPointsWindow.classList.contains("is-maximized")) {
+    restoreTranslateByPointsWindow();
+  }
+  setTranslateByPointsWindowMinimized(false);
+  translateByPointsWindow.hidden = true;
+  if (pointIncrementalWindow.classList.contains("is-maximized")) {
+    restorePointIncrementalWindow();
+  }
+  setPointIncrementalWindowMinimized(false);
+  pointIncrementalWindow.hidden = true;
   if (pointOnEntityWindow.classList.contains("is-maximized")) {
     restorePointOnEntityWindow();
   }
   setPointOnEntityWindowMinimized(false);
   pointOnEntityWindow.hidden = true;
+  boxWindow.classList.remove("is-minimized", "is-maximized");
+  boxWindow.hidden = true;
   renderEntities();
 }
 
@@ -5334,16 +9239,27 @@ function updateEditMenuState() {
   const selectedEntityCount = documentModel.entities.filter(
     (entity) =>
       selectionState.selectedEntityIds.has(entity.id) &&
+      isEntityOnCurrentLayer(entity) &&
       (entity.type !== "point" || !entity.isConstruction),
   ).length;
+  const canEditLayer = isCurrentLayerEditable();
+  const selectedSolidCount = getSelectedModelSolids().filter((solid) =>
+    isEntityOnCurrentLayer(solid),
+  ).length;
+  const activeSelectionCount = is3dWorkspace()
+    ? selectedSolidCount
+    : selectedEntityCount;
+  const hasWorkspaceClipboard = is3dWorkspace()
+    ? clipboardState.solids.length > 0
+    : clipboardState.rootEntityIds.length > 0;
   undoMenu.disabled = historyState.undoStack.length === 0;
   redoMenu.disabled = historyState.redoStack.length === 0;
   quickUndoButton.disabled = historyState.undoStack.length === 0;
   quickRedoButton.disabled = historyState.redoStack.length === 0;
-  copyMenu.disabled = selectedEntityCount === 0;
-  pasteMenu.disabled = clipboardState.rootEntityIds.length === 0;
-  cutMenu.disabled = selectedEntityCount === 0;
-  deleteMenu.disabled = selectedEntityCount === 0;
+  copyMenu.disabled = activeSelectionCount === 0;
+  pasteMenu.disabled = !hasWorkspaceClipboard || !canEditLayer;
+  cutMenu.disabled = activeSelectionCount === 0 || !canEditLayer;
+  deleteMenu.disabled = activeSelectionCount === 0 || !canEditLayer;
 }
 
 function dismissEditMenu() {
@@ -5431,11 +9347,24 @@ function getSelectedClipboardRoots() {
   return documentModel.entities.filter(
     (entity) =>
       selectionState.selectedEntityIds.has(entity.id) &&
+      isEntityOnCurrentLayer(entity) &&
       (entity.type !== "point" || !entity.isConstruction),
   );
 }
 
 function captureSelectionToClipboard() {
+  if (is3dWorkspace()) {
+    const solids = getSelectedModelSolids().filter(
+      (solid) =>
+        isEntityOnCurrentLayer(solid) && isEntityLayerVisible(solid),
+    );
+    if (!solids.length) return 0;
+    clipboardState.solids = clonePlainModelValue(solids);
+    clipboardState.entities = [];
+    clipboardState.rootEntityIds = [];
+    updateEditMenuState();
+    return solids.length;
+  }
   const rootEntities = getSelectedClipboardRoots();
   if (!rootEntities.length) return 0;
 
@@ -5452,6 +9381,7 @@ function captureSelectionToClipboard() {
     .filter((entity) => copiedEntityIds.has(entity.id))
     .map((entity) => ({ ...entity }));
   clipboardState.rootEntityIds = rootEntities.map((entity) => entity.id);
+  clipboardState.solids = [];
   updateEditMenuState();
   return rootEntities.length;
 }
@@ -5464,12 +9394,42 @@ function copySelectedEntities() {
     return;
   }
 
-  commandStatus.textContent =
-    `Copied ${copiedCount} ${copiedCount === 1 ? "entity" : "entities"}.`;
+  const noun = is3dWorkspace() ? "solid" : "entity";
+  commandStatus.textContent = `Copied ${copiedCount} ${copiedCount === 1 ? noun : `${noun}s`}.`;
 }
 
 function pasteCopiedEntities() {
   dismissEditMenu();
+  const restrictionMessage = getCurrentLayerRestrictionMessage("Paste");
+  if (restrictionMessage) {
+    commandStatus.textContent = restrictionMessage;
+    return;
+  }
+  if (is3dWorkspace()) {
+    if (!clipboardState.solids.length) {
+      commandStatus.textContent =
+        "Paste: The 3D PrometheusCAD clipboard is empty.";
+      updateEditMenuState();
+      return;
+    }
+    const copiedSolids = clonePlainModelValue(clipboardState.solids);
+    recordDocumentChange(
+      `Paste ${copiedSolids.length} ${copiedSolids.length === 1 ? "solid" : "solids"}`,
+    );
+    clearModelSelection();
+    copiedSolids.forEach((solid) => {
+      solid.id = documentModel.model3d.nextSolidId;
+      solid.layerId = documentModel.currentLayerId;
+      documentModel.model3d.nextSolidId += 1;
+      documentModel.model3d.solids.push(solid);
+      modelSelectionState.selectedSolidIds.add(solid.id);
+    });
+    renderEntities();
+    commandStatus.textContent =
+      `Pasted ${copiedSolids.length} ` +
+      `${copiedSolids.length === 1 ? "solid" : "solids"} at the copied coordinates.`;
+    return;
+  }
   if (!clipboardState.rootEntityIds.length || !clipboardState.entities.length) {
     commandStatus.textContent = "Paste: The PrometheusCAD clipboard is empty.";
     updateEditMenuState();
@@ -5491,13 +9451,17 @@ function pasteCopiedEntities() {
     const pastedEntity = {
       ...sourceEntity,
       id: pastedIdBySourceId.get(sourceEntity.id),
+      layerId: documentModel.currentLayerId,
     };
     CLIPBOARD_POINT_REFERENCE_PROPERTIES.forEach((property) => {
       if (pastedIdBySourceId.has(sourceEntity[property])) {
         pastedEntity[property] = pastedIdBySourceId.get(sourceEntity[property]);
       }
     });
-    if (pastedEntity.type === "point" && !rootEntityIdSet.has(sourceEntity.id)) {
+    if (
+      pastedEntity.type === "point" &&
+      !rootEntityIdSet.has(sourceEntity.id)
+    ) {
       pastedEntity.isConstruction = true;
     }
     return pastedEntity;
@@ -5524,7 +9488,9 @@ function pasteCopiedEntities() {
 function detachEntityReferencesFromPoints(entityIdsToRemove, pointIdsToDetach) {
   const replacementPointBySourceId = new Map();
   documentModel.entities.forEach((entity) => {
-    if (entityIdsToRemove.has(entity.id)) return;
+    if (!isEntityOnCurrentLayer(entity) || entityIdsToRemove.has(entity.id)) {
+      return;
+    }
     CLIPBOARD_POINT_REFERENCE_PROPERTIES.forEach((property) => {
       const sourcePointId = entity[property];
       if (!pointIdsToDetach.has(sourcePointId)) return;
@@ -5542,6 +9508,34 @@ function detachEntityReferencesFromPoints(entityIdsToRemove, pointIdsToDetach) {
 
 function cutSelectedEntities() {
   dismissEditMenu();
+  const restrictionMessage = getCurrentLayerRestrictionMessage("Cut");
+  if (restrictionMessage) {
+    commandStatus.textContent = restrictionMessage;
+    return;
+  }
+  if (is3dWorkspace()) {
+    const solids = getSelectedModelSolids().filter((solid) =>
+      isEntityOnCurrentLayer(solid),
+    );
+    if (!solids.length) {
+      commandStatus.textContent = "Cut: Select one or more solids first.";
+      updateEditMenuState();
+      return;
+    }
+    const cutCount = captureSelectionToClipboard();
+    const solidIds = new Set(solids.map((solid) => solid.id));
+    recordDocumentChange(
+      `Cut ${cutCount} ${cutCount === 1 ? "solid" : "solids"}`,
+    );
+    documentModel.model3d.solids = documentModel.model3d.solids.filter(
+      (solid) => !solidIds.has(solid.id),
+    );
+    clearModelSelection();
+    renderEntities();
+    commandStatus.textContent =
+      `Cut ${cutCount} ${cutCount === 1 ? "solid" : "solids"}.`;
+    return;
+  }
   const rootEntities = getSelectedClipboardRoots();
   if (!rootEntities.length) {
     commandStatus.textContent = "Cut: Select one or more entities first.";
@@ -5567,15 +9561,46 @@ function cutSelectedEntities() {
   pruneUnusedConstructionPoints();
   selectionState.selectedEntityId = null;
   renderEntities();
-  commandStatus.textContent =
-    `Cut ${cutCount} ${cutCount === 1 ? "entity" : "entities"}.`;
+  commandStatus.textContent = `Cut ${cutCount} ${cutCount === 1 ? "entity" : "entities"}.`;
 }
 
 function deleteSelectedEntity() {
   dismissEditMenu();
+  const restrictionMessage = getCurrentLayerRestrictionMessage("Delete");
+  if (restrictionMessage) {
+    commandStatus.textContent = restrictionMessage;
+    return;
+  }
+  if (is3dWorkspace()) {
+    const selectedSolids = getSelectedModelSolids().filter((solid) =>
+      isEntityOnCurrentLayer(solid),
+    );
+    if (!selectedSolids.length) {
+      commandStatus.textContent = "Select one or more solids to delete.";
+      updateEditMenuState();
+      return;
+    }
+    const selectedSolidIds = new Set(
+      selectedSolids.map((solid) => solid.id),
+    );
+    recordDocumentChange(
+      `Delete ${selectedSolids.length} selected ` +
+        `${selectedSolids.length === 1 ? "solid" : "solids"}`,
+    );
+    documentModel.model3d.solids = documentModel.model3d.solids.filter(
+      (solid) => !selectedSolidIds.has(solid.id),
+    );
+    clearModelSelection();
+    renderEntities();
+    commandStatus.textContent =
+      `Deleted ${selectedSolids.length} selected ` +
+      `${selectedSolids.length === 1 ? "solid" : "solids"}.`;
+    return;
+  }
   const selectedEntities = documentModel.entities.filter(
     (entity) =>
       selectionState.selectedEntityIds.has(entity.id) &&
+      isEntityOnCurrentLayer(entity) &&
       (entity.type !== "point" || !entity.isConstruction),
   );
   if (!selectedEntities.length) {
@@ -5594,17 +9619,19 @@ function deleteSelectedEntity() {
   );
   const entityIdsToDelete = new Set(selectedEntityIds);
   documentModel.entities.forEach((entity) => {
-    if (selectedEntityIds.has(entity.id)) return;
+    if (!isEntityOnCurrentLayer(entity) || selectedEntityIds.has(entity.id)) {
+      return;
+    }
     const dependsOnSelectedPoint =
-      (entity.type === "circle" && selectedPointIds.has(entity.centerPointId)) ||
+      (entity.type === "circle" &&
+        selectedPointIds.has(entity.centerPointId)) ||
       (entity.type === "arc" &&
         (selectedPointIds.has(entity.centerPointId) ||
           selectedPointIds.has(entity.startPointId) ||
           selectedPointIds.has(entity.endPointId)));
     if (dependsOnSelectedPoint) entityIdsToDelete.add(entity.id);
   });
-  const dependentDeleteCount =
-    entityIdsToDelete.size - selectedEntityIds.size;
+  const dependentDeleteCount = entityIdsToDelete.size - selectedEntityIds.size;
   recordDocumentChange(
     `Delete ${selectedEntities.length} selected ` +
       `${selectedEntities.length === 1 ? "entity" : "entities"}`,
@@ -5762,10 +9789,11 @@ function handleLineSketchClick(event) {
 
   lineSketchState.startPointId = null;
   lineSketchState.previewWorld = null;
-  const { line, startPoint: visibleStart, endPoint } = addCoordinateLine(
-    startPoint,
-    worldPoint,
-  );
+  const {
+    line,
+    startPoint: visibleStart,
+    endPoint,
+  } = addCoordinateLine(startPoint, worldPoint);
   commandStatus.textContent =
     `Created line ${line.id} from point ${visibleStart.id} to point ${endPoint.id}. ` +
     "Line - Sketch remains active; click the first point for the next line.";
@@ -5947,7 +9975,9 @@ function handleIntersectingPointClick(event) {
   const firstEntity = getEntityById(intersectionState.firstEntityId);
   const secondEntity = getEntityById(entityId);
   if (!firstEntity || !secondEntity) {
-    deactivateIntersectingPoint("Point - Intersecting canceled: entity missing.");
+    deactivateIntersectingPoint(
+      "Point - Intersecting canceled: entity missing.",
+    );
     return;
   }
 
@@ -5993,7 +10023,10 @@ function handleIntersectingPointClick(event) {
 function positionCircleWindowInitially() {
   const windowBounds = circleRadiusWindow.getBoundingClientRect();
   const left = Math.max(8, window.innerWidth - windowBounds.width - 24);
-  const top = Math.min(112, Math.max(8, window.innerHeight - windowBounds.height - 36));
+  const top = Math.min(
+    112,
+    Math.max(8, window.innerHeight - windowBounds.height - 36),
+  );
 
   circleRadiusWindow.style.left = `${left}px`;
   circleRadiusWindow.style.top = `${top}px`;
@@ -6125,12 +10158,11 @@ function activateCircleCenterMode(centerMode) {
   circleContinueButton.hidden = !usesCoordinateCenter;
   circleDialogActions.classList.toggle("two-actions", !usesCoordinateCenter);
   circleCenterReadout.textContent = "None selected";
-  circleToolMessage.textContent =
-    usesCoordinateCenter
-      ? "Enter the center coordinates and a positive radius."
-      : centerMode === "sketch"
-        ? "Set the radius if needed, then click the drawing to sketch the center."
-        : "Select an existing point for the center.";
+  circleToolMessage.textContent = usesCoordinateCenter
+    ? "Enter the center coordinates and a positive radius."
+    : centerMode === "sketch"
+      ? "Set the radius if needed, then click the drawing to sketch the center."
+      : "Select an existing point for the center.";
   if (getCircleRadiusInputValue() === null) circleRadiusInput.value = "1";
   if (!Number.isFinite(getArithmeticInputValue(circleCenterXInput))) {
     circleCenterXInput.value = "0";
@@ -6194,13 +10226,13 @@ function handleCircleCenterClick(event) {
 
   circleState.centerPointId = centerPoint.id;
   circleCenterReadout.textContent = `Point ${centerPoint.id} — X${formatCoordinate(centerPoint.x)} Y${formatCoordinate(centerPoint.y)}`;
-  circleToolMessage.textContent = "Enter a positive radius, then choose Create.";
+  circleToolMessage.textContent =
+    "Enter a positive radius, then choose Create.";
   circleCreateButton.disabled = getCircleRadiusInputValue() === null;
   renderEntities();
   circleRadiusInput.focus();
   circleRadiusInput.select();
-  commandStatus.textContent =
-    `Circle: Center point ${centerPoint.id}; enter the radius.`;
+  commandStatus.textContent = `Circle: Center point ${centerPoint.id}; enter the radius.`;
 }
 
 function createCoordinateCircleFromInputs(keepDialogOpen) {
@@ -6347,8 +10379,7 @@ function handleThreeEntityCircleClick(event) {
     ".point-entity, .line-entity, .circle-entity",
   );
   if (!entityElement) {
-    commandStatus.textContent =
-      `Circle - 3 Entities: Select entity ${threeEntityCircleState.entityIds.length + 1} of 3.`;
+    commandStatus.textContent = `Circle - 3 Entities: Select entity ${threeEntityCircleState.entityIds.length + 1} of 3.`;
     return;
   }
 
@@ -6462,6 +10493,7 @@ function closeHexagonWindow(statusMessage = "Ready") {
   hexagonWindow.hidden = true;
   hexagonState.active = false;
   hexagonState.centerPointId = null;
+  hexagonState.centerMode = null;
   cadCanvas.classList.remove("hexagon-center");
   previewLayer.innerHTML = "";
   renderEntities();
@@ -6469,15 +10501,18 @@ function closeHexagonWindow(statusMessage = "Ready") {
 }
 
 function updateHexagonCreateState() {
+  const center = getCenterFromToolState(
+    hexagonState,
+    getHexagonCenterXInputValue,
+    getHexagonCenterYInputValue,
+  );
   const acrossFlats = getHexagonAcrossFlatsInputValue();
   const cornerRadius = getHexagonCornerRadiusInputValue(acrossFlats);
   hexagonCreateButton.disabled =
-    hexagonState.centerPointId === null ||
-    acrossFlats === null ||
-    cornerRadius === null;
+    center === null || acrossFlats === null || cornerRadius === null;
 }
 
-function activateHexagon() {
+function activateHexagon(centerMode) {
   dismissDrawMenu();
   deactivatePointSketch();
   deactivateJoin();
@@ -6487,15 +10522,15 @@ function activateHexagon() {
   deactivateFillet();
   deactivateRotate();
   if (!circleRadiusWindow.hidden) closeCircleRadiusWindow(null);
+  if (!rectangleWindow.hidden) closeRectangleWindow(null);
+  if (!boltHoleCircleWindow.hidden) closeBoltHoleCircleWindow(null);
   if (!offsetWindow.hidden) closeOffsetWindow(null);
   if (!pointCoordinatesWindow.hidden) closePointCoordinatesWindow(null);
   if (!lineCoordinatesWindow.hidden) closeLineCoordinatesWindow(null);
 
-  const pointCount = documentModel.entities.filter(
-    (entity) => entity.type === "point" && !entity.isConstruction,
-  ).length;
-  if (pointCount < 1) {
-    commandStatus.textContent = "Hexagon needs an existing center point.";
+  if (centerMode === "point" && !hasSelectableCenterPoint()) {
+    commandStatus.textContent =
+      "Hexagon - Point Center needs an existing point on the current layer.";
     return;
   }
 
@@ -6504,9 +10539,20 @@ function activateHexagon() {
   cadCanvas.classList.remove("select-single");
   hexagonState.active = true;
   hexagonState.centerPointId = null;
-  cadCanvas.classList.add("hexagon-center");
+  hexagonState.centerMode = centerMode;
+  cadCanvas.classList.toggle("hexagon-center", centerMode === "point");
+  hexagonTitle.textContent =
+    centerMode === "point" ? "Hexagon - Point Center" : "Hexagon - Define Center";
+  hexagonCenterReadoutGroup.hidden = centerMode !== "point";
+  hexagonCoordinateCenterFields.hidden = centerMode !== "defined";
+  hexagonCoordinateCenterFields.disabled = centerMode !== "defined";
   hexagonCenterReadout.textContent = "None selected";
-  hexagonToolMessage.textContent = "Select an existing point for the center.";
+  if (getHexagonCenterXInputValue() === null) hexagonCenterXInput.value = "0";
+  if (getHexagonCenterYInputValue() === null) hexagonCenterYInput.value = "0";
+  hexagonToolMessage.textContent =
+    centerMode === "point"
+      ? "Select an existing point for the center."
+      : "Enter the center coordinates, size across flats, and corner radius.";
   if (getHexagonAcrossFlatsInputValue() === null) {
     hexagonAcrossFlatsInput.value = "1";
   }
@@ -6516,18 +10562,28 @@ function activateHexagon() {
   }
   hexagonAcrossFlatsInput.setCustomValidity("");
   hexagonCornerRadiusInput.setCustomValidity("");
-  hexagonCreateButton.disabled = true;
+  hexagonCenterXInput.setCustomValidity("");
+  hexagonCenterYInput.setCustomValidity("");
+  updateHexagonCreateState();
   hexagonWindow.hidden = false;
   setHexagonWindowMinimized(false);
   if (!hexagonWindowState.hasPosition) positionHexagonWindowInitially();
   renderEntities();
-  commandStatus.textContent = "Hexagon: Select the center point.";
+  if (centerMode === "defined") {
+    hexagonCenterXInput.focus();
+    hexagonCenterXInput.select();
+  }
+  commandStatus.textContent =
+    centerMode === "point"
+      ? "Hexagon - Point Center: Select the center point."
+      : "Hexagon - Define Center: Enter the center and dimensions.";
 }
 
 function handleHexagonCenterClick(event) {
   const pointElement = event.target.closest(".point-entity");
   if (!pointElement) {
-    commandStatus.textContent = "Hexagon: Select an existing point for the center.";
+    commandStatus.textContent =
+      "Hexagon: Select an existing point for the center.";
     return;
   }
   const centerPoint = getPointById(Number(pointElement.dataset.entityId));
@@ -6542,12 +10598,29 @@ function handleHexagonCenterClick(event) {
   renderEntities();
   hexagonAcrossFlatsInput.focus();
   hexagonAcrossFlatsInput.select();
-  commandStatus.textContent =
-    `Hexagon: Center point ${centerPoint.id}; enter the dimensions.`;
+  commandStatus.textContent = `Hexagon: Center point ${centerPoint.id}; enter the dimensions.`;
 }
 
 function createHexagonFromInputs() {
-  const centerPoint = getPointById(hexagonState.centerPointId);
+  let center =
+    hexagonState.centerMode === "point"
+      ? getPointById(hexagonState.centerPointId)
+      : null;
+  if (hexagonState.centerMode === "defined") {
+    const centerX = resolveArithmeticInput(hexagonCenterXInput, {
+      messageElement: hexagonToolMessage,
+      invalidMessage: "Enter a valid arithmetic expression for center X.",
+      successMessage:
+        "Enter the center coordinates, size across flats, and corner radius.",
+    });
+    const centerY = resolveArithmeticInput(hexagonCenterYInput, {
+      messageElement: hexagonToolMessage,
+      invalidMessage: "Enter a valid arithmetic expression for center Y.",
+      successMessage:
+        "Enter the center coordinates, size across flats, and corner radius.",
+    });
+    if (centerX !== null && centerY !== null) center = { x: centerX, y: centerY };
+  }
   const acrossFlats = resolveArithmeticInput(hexagonAcrossFlatsInput, {
     messageElement: hexagonToolMessage,
     invalidMessage:
@@ -6572,8 +10645,11 @@ function createHexagonFromInputs() {
       "Enter the size across flats and an optional corner radius.",
   });
   if (!hexagonForm.reportValidity()) return;
-  if (!centerPoint) {
-    hexagonToolMessage.textContent = "Select an existing point for the center.";
+  if (!center) {
+    hexagonToolMessage.textContent =
+      hexagonState.centerMode === "point"
+        ? "Select an existing point for the center."
+        : "Enter valid X and Y center coordinates.";
     return;
   }
   if (acrossFlats === null) {
@@ -6587,24 +10663,31 @@ function createHexagonFromInputs() {
     return;
   }
 
-  const result = addHexagon(centerPoint, acrossFlats, cornerRadius);
-  hexagonState.centerPointId = null;
-  hexagonCenterReadout.textContent = "None selected";
-  hexagonCreateButton.disabled = true;
-  const shapeDescription = cornerRadius <= GEOMETRY_EPSILON
-    ? "sharp-corner hexagon"
-    : `rounded hexagon with ${result.arcs.length} corner arcs`;
+  const result = addHexagon(center, acrossFlats, cornerRadius);
+  const shapeDescription =
+    cornerRadius <= GEOMETRY_EPSILON
+      ? "sharp-corner hexagon"
+      : `rounded hexagon with ${result.arcs.length} corner arcs`;
   const resultMessage =
-    `Created ${shapeDescription} at point ${centerPoint.id}, ` +
+    `Created ${shapeDescription} ${
+      Number.isInteger(center.id)
+        ? `at point ${center.id}`
+        : `centered at X${formatCoordinate(center.x)} Y${formatCoordinate(center.y)}`
+    }, ` +
     `${formatCoordinate(acrossFlats)} across flats` +
     (cornerRadius <= GEOMETRY_EPSILON
       ? "."
       : ` and radius ${formatCoordinate(cornerRadius)}.`);
-  hexagonToolMessage.textContent =
-    `${resultMessage} Select the next center point.`;
-  renderEntities();
-  commandStatus.textContent =
-    `${resultMessage} Hexagon remains active; select the next center point.`;
+  if (hexagonState.centerMode === "point") {
+    hexagonState.centerPointId = null;
+    hexagonCenterReadout.textContent = "None selected";
+    hexagonCreateButton.disabled = true;
+    hexagonToolMessage.textContent = `${resultMessage} Select the next center point.`;
+    renderEntities();
+    commandStatus.textContent = `${resultMessage} Hexagon - Point Center remains active; select the next center point.`;
+  } else {
+    closeHexagonWindow(resultMessage);
+  }
 }
 
 function positionRectangleWindowInitially() {
@@ -6665,21 +10748,30 @@ function closeRectangleWindow(statusMessage = "Ready") {
   }
   setRectangleWindowMinimized(false);
   rectangleWindow.hidden = true;
+  rectangleState.active = false;
+  rectangleState.centerPointId = null;
+  rectangleState.centerMode = null;
+  cadCanvas.classList.remove("rectangle-center");
+  renderEntities();
   if (statusMessage !== null) commandStatus.textContent = statusMessage;
 }
 
 function updateRectangleCreateState() {
+  const center = getCenterFromToolState(
+    rectangleState,
+    getRectangleCenterXInputValue,
+    getRectangleCenterYInputValue,
+  );
   const xSize = getRectangleXInputValue();
   const ySize = getRectangleYInputValue();
   rectangleCreateButton.disabled =
-    getRectangleCenterXInputValue() === null ||
-    getRectangleCenterYInputValue() === null ||
+    center === null ||
     xSize === null ||
     ySize === null ||
     getRectangleRadiusInputValue(xSize, ySize) === null;
 }
 
-function activateRectangle() {
+function activateRectangle(centerMode) {
   dismissDrawMenu();
   deactivatePointSketch();
   deactivateJoin();
@@ -6695,10 +10787,28 @@ function activateRectangle() {
   if (!pointCoordinatesWindow.hidden) closePointCoordinatesWindow(null);
   if (!lineCoordinatesWindow.hidden) closeLineCoordinatesWindow(null);
 
+  if (centerMode === "point" && !hasSelectableCenterPoint()) {
+    commandStatus.textContent =
+      "Rectangle - Point Center needs an existing point on the current layer.";
+    return;
+  }
+
   selectionState.mode = null;
   selectionState.selectedEntityId = null;
   selectionState.pickCycle = null;
   cadCanvas.classList.remove("select-single");
+  rectangleState.active = true;
+  rectangleState.centerPointId = null;
+  rectangleState.centerMode = centerMode;
+  cadCanvas.classList.toggle("rectangle-center", centerMode === "point");
+  rectangleTitle.textContent =
+    centerMode === "point"
+      ? "Rectangle - Point Center"
+      : "Rectangle - Define Center";
+  rectangleCenterReadoutGroup.hidden = centerMode !== "point";
+  rectangleCoordinateCenterFields.hidden = centerMode !== "defined";
+  rectangleCoordinateCenterFields.disabled = centerMode !== "defined";
+  rectangleCenterReadout.textContent = "None selected";
   if (getRectangleCenterXInputValue() === null) {
     rectangleCenterXInput.value = "0";
   }
@@ -6710,7 +10820,7 @@ function activateRectangle() {
   const xSize = getRectangleXInputValue();
   const ySize = getRectangleYInputValue();
   if (getRectangleRadiusInputValue(xSize, ySize) === null) {
-    rectangleRadiusInput.value = formatArithmeticResult(
+    rectangleRadiusInput.value = formatLengthResult(
       Math.min(0.25, Math.min(xSize, ySize) / 2),
     );
   }
@@ -6722,31 +10832,67 @@ function activateRectangle() {
     rectangleRadiusInput,
   ].forEach((input) => input.setCustomValidity(""));
   rectangleToolMessage.textContent =
-    "Enter the center location, overall dimensions, and corner radius.";
+    centerMode === "point"
+      ? "Select an existing point for the center."
+      : "Enter the center location, overall dimensions, and corner radius.";
   updateRectangleCreateState();
   rectangleWindow.hidden = false;
   setRectangleWindowMinimized(false);
   if (!rectangleWindowState.hasPosition) positionRectangleWindowInitially();
-  rectangleCenterXInput.focus();
-  rectangleCenterXInput.select();
+  if (centerMode === "defined") {
+    rectangleCenterXInput.focus();
+    rectangleCenterXInput.select();
+  }
   renderEntities();
   commandStatus.textContent =
-    "Rectangle: Enter the center location, X and Y dimensions, and radius.";
+    centerMode === "point"
+      ? "Rectangle - Point Center: Select the center point."
+      : "Rectangle - Define Center: Enter the center and dimensions.";
+}
+
+function handleRectangleCenterClick(event) {
+  const pointElement = event.target.closest(".point-entity");
+  if (!pointElement) {
+    commandStatus.textContent =
+      "Rectangle - Point Center: Select an existing point for the center.";
+    return;
+  }
+  const centerPoint = getPointById(Number(pointElement.dataset.entityId));
+  if (!centerPoint) return;
+  rectangleState.centerPointId = centerPoint.id;
+  rectangleCenterReadout.textContent =
+    `Point ${centerPoint.id} — X${formatCoordinate(centerPoint.x)} ` +
+    `Y${formatCoordinate(centerPoint.y)}`;
+  rectangleToolMessage.textContent =
+    "Enter the overall X and Y dimensions and corner radius.";
+  updateRectangleCreateState();
+  renderEntities();
+  rectangleXInput.focus();
+  rectangleXInput.select();
+  commandStatus.textContent =
+    `Rectangle: Center point ${centerPoint.id}; enter the dimensions.`;
 }
 
 function createRectangleFromInputs() {
-  const centerX = resolveArithmeticInput(rectangleCenterXInput, {
-    messageElement: rectangleToolMessage,
-    invalidMessage: "Enter a valid arithmetic expression for center X.",
-    successMessage:
-      "Enter the center location, overall dimensions, and corner radius.",
-  });
-  const centerY = resolveArithmeticInput(rectangleCenterYInput, {
-    messageElement: rectangleToolMessage,
-    invalidMessage: "Enter a valid arithmetic expression for center Y.",
-    successMessage:
-      "Enter the center location, overall dimensions, and corner radius.",
-  });
+  let center =
+    rectangleState.centerMode === "point"
+      ? getPointById(rectangleState.centerPointId)
+      : null;
+  if (rectangleState.centerMode === "defined") {
+    const centerX = resolveArithmeticInput(rectangleCenterXInput, {
+      messageElement: rectangleToolMessage,
+      invalidMessage: "Enter a valid arithmetic expression for center X.",
+      successMessage:
+        "Enter the center location, overall dimensions, and corner radius.",
+    });
+    const centerY = resolveArithmeticInput(rectangleCenterYInput, {
+      messageElement: rectangleToolMessage,
+      invalidMessage: "Enter a valid arithmetic expression for center Y.",
+      successMessage:
+        "Enter the center location, overall dimensions, and corner radius.",
+    });
+    if (centerX !== null && centerY !== null) center = { x: centerX, y: centerY };
+  }
   const xSize = resolveArithmeticInput(rectangleXInput, {
     messageElement: rectangleToolMessage,
     invalidMessage: "Enter a valid arithmetic expression for X.",
@@ -6782,8 +10928,7 @@ function createRectangleFromInputs() {
   });
   if (!rectangleForm.reportValidity()) return;
   if (
-    centerX === null ||
-    centerY === null ||
+    center === null ||
     xSize === null ||
     ySize === null ||
     radius === null
@@ -6791,10 +10936,10 @@ function createRectangleFromInputs() {
     return;
   }
 
-  const center = { x: centerX, y: centerY };
   const result = addRectangle(center, xSize, ySize, radius);
-  const centerDescription =
-    `centered at X${formatCoordinate(centerX)} Y${formatCoordinate(centerY)}`;
+  const centerDescription = Number.isInteger(center.id)
+    ? `centered at point ${center.id} (X${formatCoordinate(center.x)} Y${formatCoordinate(center.y)})`
+    : `centered at X${formatCoordinate(center.x)} Y${formatCoordinate(center.y)}`;
   const resultMessage =
     radius <= GEOMETRY_EPSILON
       ? `Created sharp rectangle X${formatCoordinate(xSize)} by Y${formatCoordinate(ySize)}, ${centerDescription}.`
@@ -6866,17 +11011,28 @@ function closeBoltHoleCircleWindow(statusMessage = "Ready") {
   }
   setBoltHoleCircleWindowMinimized(false);
   boltHoleCircleWindow.hidden = true;
+  boltHoleCircleState.active = false;
+  boltHoleCircleState.centerPointId = null;
+  boltHoleCircleState.centerMode = null;
+  cadCanvas.classList.remove("bolt-hole-circle-center");
+  renderEntities();
   if (statusMessage !== null) commandStatus.textContent = statusMessage;
 }
 
 function updateBoltHoleCircleCreateState() {
+  const center = getCenterFromToolState(
+    boltHoleCircleState,
+    getBoltHoleCircleCenterXInputValue,
+    getBoltHoleCircleCenterYInputValue,
+  );
   boltHoleCircleCreateButton.disabled =
+    center === null ||
     getBoltHoleDiameterInputValue() === null ||
     getBoltHoleCountInputValue() === null ||
     getBoltHoleFeatureDiameterInputValue() === null;
 }
 
-function activateBoltHoleCircle() {
+function activateBoltHoleCircle(centerMode) {
   dismissDrawMenu();
   deactivatePointSketch();
   deactivateJoin();
@@ -6887,14 +11043,42 @@ function activateBoltHoleCircle() {
   deactivateRotate();
   if (!circleRadiusWindow.hidden) closeCircleRadiusWindow(null);
   if (!hexagonWindow.hidden) closeHexagonWindow(null);
+  if (!rectangleWindow.hidden) closeRectangleWindow(null);
   if (!offsetWindow.hidden) closeOffsetWindow(null);
   if (!pointCoordinatesWindow.hidden) closePointCoordinatesWindow(null);
   if (!lineCoordinatesWindow.hidden) closeLineCoordinatesWindow(null);
+
+  if (centerMode === "point" && !hasSelectableCenterPoint()) {
+    commandStatus.textContent =
+      "Bolt Hole Circle - Point Center needs an existing point on the current layer.";
+    return;
+  }
 
   selectionState.mode = null;
   selectionState.selectedEntityId = null;
   selectionState.pickCycle = null;
   cadCanvas.classList.remove("select-single");
+  boltHoleCircleState.active = true;
+  boltHoleCircleState.centerPointId = null;
+  boltHoleCircleState.centerMode = centerMode;
+  cadCanvas.classList.toggle(
+    "bolt-hole-circle-center",
+    centerMode === "point",
+  );
+  boltHoleCircleTitle.textContent =
+    centerMode === "point"
+      ? "Bolt Hole Circle - Point Center"
+      : "Bolt Hole Circle - Define Center";
+  boltHoleCircleCenterReadoutGroup.hidden = centerMode !== "point";
+  boltHoleCircleCoordinateCenterFields.hidden = centerMode !== "defined";
+  boltHoleCircleCoordinateCenterFields.disabled = centerMode !== "defined";
+  boltHoleCircleCenterReadout.textContent = "None selected";
+  if (getBoltHoleCircleCenterXInputValue() === null) {
+    boltHoleCircleCenterXInput.value = "0";
+  }
+  if (getBoltHoleCircleCenterYInputValue() === null) {
+    boltHoleCircleCenterYInput.value = "0";
+  }
   if (getBoltHoleDiameterInputValue() === null) {
     boltHoleDiameterInput.value = "3.000";
   }
@@ -6905,45 +11089,93 @@ function activateBoltHoleCircle() {
     boltHoleFeatureDiameterInput.value = "0";
   }
   [
+    boltHoleCircleCenterXInput,
+    boltHoleCircleCenterYInput,
     boltHoleDiameterInput,
     boltHoleCountInput,
     boltHoleFeatureDiameterInput,
   ].forEach((input) => input.setCustomValidity(""));
   boltHoleCircleToolMessage.textContent =
-    "Center X0 Y0; the first hole is at 0°.";
+    centerMode === "point"
+      ? "Select an existing point for the center."
+      : "Enter the center and pattern dimensions; the first hole is at 0°.";
   updateBoltHoleCircleCreateState();
   boltHoleCircleWindow.hidden = false;
   setBoltHoleCircleWindowMinimized(false);
   if (!boltHoleCircleWindowState.hasPosition) {
     positionBoltHoleCircleWindowInitially();
   }
-  boltHoleDiameterInput.focus();
-  boltHoleDiameterInput.select();
+  if (centerMode === "defined") {
+    boltHoleCircleCenterXInput.focus();
+    boltHoleCircleCenterXInput.select();
+  }
   renderEntities();
   commandStatus.textContent =
-    "Bolt Hole Circle: Center X0 Y0; enter the pattern dimensions.";
+    centerMode === "point"
+      ? "Bolt Hole Circle - Point Center: Select the center point."
+      : "Bolt Hole Circle - Define Center: Enter the center and pattern dimensions.";
+}
+
+function handleBoltHoleCircleCenterClick(event) {
+  const pointElement = event.target.closest(".point-entity");
+  if (!pointElement) {
+    commandStatus.textContent =
+      "Bolt Hole Circle - Point Center: Select an existing point for the center.";
+    return;
+  }
+  const centerPoint = getPointById(Number(pointElement.dataset.entityId));
+  if (!centerPoint) return;
+  boltHoleCircleState.centerPointId = centerPoint.id;
+  boltHoleCircleCenterReadout.textContent =
+    `Point ${centerPoint.id} — X${formatCoordinate(centerPoint.x)} ` +
+    `Y${formatCoordinate(centerPoint.y)}`;
+  boltHoleCircleToolMessage.textContent =
+    "Enter the pattern dimensions; the first hole is at 0°.";
+  updateBoltHoleCircleCreateState();
+  renderEntities();
+  boltHoleDiameterInput.focus();
+  boltHoleDiameterInput.select();
+  commandStatus.textContent =
+    `Bolt Hole Circle: Center point ${centerPoint.id}; enter the pattern dimensions.`;
 }
 
 function createBoltHoleCircleFromInputs() {
+  let center =
+    boltHoleCircleState.centerMode === "point"
+      ? getPointById(boltHoleCircleState.centerPointId)
+      : null;
+  if (boltHoleCircleState.centerMode === "defined") {
+    const centerX = resolveArithmeticInput(boltHoleCircleCenterXInput, {
+      messageElement: boltHoleCircleToolMessage,
+      invalidMessage: "Enter a valid arithmetic expression for center X.",
+      successMessage:
+        "Enter the center and pattern dimensions; the first hole is at 0°.",
+    });
+    const centerY = resolveArithmeticInput(boltHoleCircleCenterYInput, {
+      messageElement: boltHoleCircleToolMessage,
+      invalidMessage: "Enter a valid arithmetic expression for center Y.",
+      successMessage:
+        "Enter the center and pattern dimensions; the first hole is at 0°.",
+    });
+    if (centerX !== null && centerY !== null) center = { x: centerX, y: centerY };
+  }
   const boltHoleDiameter = resolveArithmeticInput(boltHoleDiameterInput, {
     messageElement: boltHoleCircleToolMessage,
     invalidMessage:
       "Enter a valid arithmetic expression for the bolt hole diameter.",
     validationMessage: (value) =>
       value > 0 ? null : "Bolt hole diameter must be greater than zero.",
-    successMessage: "Center X0 Y0; the first hole is at 0°.",
+    successMessage: "Enter the pattern dimensions; the first hole is at 0°.",
   });
   const holeCount = resolveArithmeticInput(boltHoleCountInput, {
     messageElement: boltHoleCircleToolMessage,
     invalidMessage:
       "Enter a valid arithmetic expression for the number of holes.",
     validationMessage: (value) =>
-      Number.isSafeInteger(value) &&
-      value > 0 &&
-      value <= MAX_BOLT_HOLE_COUNT
+      Number.isSafeInteger(value) && value > 0 && value <= MAX_BOLT_HOLE_COUNT
         ? null
         : `Number of holes must be a whole number from 1 to ${MAX_BOLT_HOLE_COUNT}.`,
-    successMessage: "Center X0 Y0; the first hole is at 0°.",
+    successMessage: "Enter the pattern dimensions; the first hole is at 0°.",
   });
   const holeDiameter = resolveArithmeticInput(boltHoleFeatureDiameterInput, {
     messageElement: boltHoleCircleToolMessage,
@@ -6951,10 +11183,11 @@ function createBoltHoleCircleFromInputs() {
       "Enter a valid arithmetic expression for the hole diameter.",
     validationMessage: (value) =>
       value >= 0 ? null : "Hole diameter must be zero or greater.",
-    successMessage: "Center X0 Y0; the first hole is at 0°.",
+    successMessage: "Enter the pattern dimensions; the first hole is at 0°.",
   });
   if (!boltHoleCircleForm.reportValidity()) return;
   if (
+    center === null ||
     boltHoleDiameter === null ||
     holeCount === null ||
     holeDiameter === null
@@ -6962,16 +11195,168 @@ function createBoltHoleCircleFromInputs() {
     return;
   }
 
-  addBoltHoleCircle(boltHoleDiameter, holeCount, holeDiameter);
+  addBoltHoleCircle(center, boltHoleDiameter, holeCount, holeDiameter);
   const featureDescription =
     holeDiameter === 0
       ? `${holeCount} ${holeCount === 1 ? "point" : "points"}`
       : `${holeCount} ${holeCount === 1 ? "hole" : "holes"} at Ø${formatCoordinate(holeDiameter)}`;
   const resultMessage =
     `Created bolt hole circle with ${featureDescription} on ` +
-    `Ø${formatCoordinate(boltHoleDiameter)}, centered at X0 Y0; ` +
+    `Ø${formatCoordinate(boltHoleDiameter)}, centered ${
+      Number.isInteger(center.id)
+        ? `at point ${center.id} (X${formatCoordinate(center.x)} Y${formatCoordinate(center.y)})`
+        : `at X${formatCoordinate(center.x)} Y${formatCoordinate(center.y)}`
+    }; ` +
     "the first position is at 0°.";
   closeBoltHoleCircleWindow(resultMessage);
+}
+
+function positionTextWindowInitially() {
+  const windowBounds = textWindow.getBoundingClientRect();
+  const left = Math.max(8, window.innerWidth - windowBounds.width - 24);
+  const top = Math.min(
+    112,
+    Math.max(8, window.innerHeight - windowBounds.height - 36),
+  );
+  textWindow.style.left = `${left}px`;
+  textWindow.style.top = `${top}px`;
+  textWindowState.hasPosition = true;
+}
+
+function setTextWindowMinimized(minimized) {
+  textWindow.classList.toggle("is-minimized", minimized);
+  textMinimizeButton.setAttribute(
+    "aria-label",
+    minimized ? "Restore Text" : "Minimize Text",
+  );
+  textMinimizeButton.title = minimized ? "Restore" : "Minimize";
+}
+
+function restoreTextWindow() {
+  textWindow.classList.remove("is-maximized");
+  if (textWindowState.restoreBounds) {
+    const { left, top, width } = textWindowState.restoreBounds;
+    textWindow.style.left = `${left}px`;
+    textWindow.style.top = `${top}px`;
+    textWindow.style.width = `${width}px`;
+  }
+  textMaximizeButton.setAttribute("aria-label", "Maximize Text");
+  textMaximizeButton.title = "Maximize";
+  textMaximizeIcon.textContent = "□";
+}
+
+function toggleTextWindowMaximized() {
+  setTextWindowMinimized(false);
+  if (textWindow.classList.contains("is-maximized")) {
+    restoreTextWindow();
+    return;
+  }
+  const bounds = textWindow.getBoundingClientRect();
+  textWindowState.restoreBounds = {
+    left: bounds.left,
+    top: bounds.top,
+    width: bounds.width,
+  };
+  textWindow.classList.add("is-maximized");
+  textMaximizeButton.setAttribute("aria-label", "Restore Text");
+  textMaximizeButton.title = "Restore";
+  textMaximizeIcon.textContent = "❐";
+}
+
+function closeTextWindow(statusMessage = "Ready") {
+  if (textWindow.classList.contains("is-maximized")) restoreTextWindow();
+  setTextWindowMinimized(false);
+  textWindow.hidden = true;
+  textPlacementState.active = false;
+  textPlacementState.previewWorld = null;
+  cadCanvas.classList.remove("text-placement");
+  renderEntities();
+  if (statusMessage !== null) commandStatus.textContent = statusMessage;
+}
+
+function updateTextPlacementState() {
+  const height = getTextHeightInputValue();
+  const content = getTextContentInputValue();
+  textHeightInput.setCustomValidity(
+    height === null ? "Text height must be greater than zero." : "",
+  );
+  textContentInput.setCustomValidity(
+    content === null ? "Enter text to place." : "",
+  );
+  if (textPlacementState.active) {
+    textToolMessage.textContent =
+      height !== null && content !== null
+        ? "Move the text with the pointer, then click to place it."
+        : height === null
+          ? "Enter a text height greater than zero."
+          : "Enter text to place.";
+  }
+  renderToolPreview();
+}
+
+function activateText() {
+  dismissDrawMenu();
+  cancelGeometryToolsForLayerChange();
+  selectionState.mode = null;
+  selectionState.selectedEntityId = null;
+  selectionState.hoveredEntityId = null;
+  selectionState.pickCycle = null;
+  cadCanvas.classList.remove("select-single");
+
+  if (getTextHeightInputValue() === null) {
+    textHeightInput.value = formatLengthResult(0.25);
+  }
+  if (!textContentInput.value.trim()) {
+    textContentInput.value = "Type text here...";
+  }
+  textPlacementState.active = true;
+  textPlacementState.previewWorld = null;
+  cadCanvas.classList.add("text-placement");
+  textWindow.hidden = false;
+  setTextWindowMinimized(false);
+  if (!textWindowState.hasPosition) positionTextWindowInitially();
+  updateTextPlacementState();
+  textContentInput.focus();
+  textContentInput.select();
+  renderEntities();
+  commandStatus.textContent =
+    "Text: Enter the text and height, then move the pointer onto the drawing.";
+}
+
+function addTextEntity(position, height, content) {
+  recordDocumentChange("Create text");
+  const textEntity = {
+    id: documentModel.nextEntityId,
+    type: "text",
+    layerId: documentModel.currentLayerId,
+    x: position.x,
+    y: position.y,
+    height,
+    content,
+  };
+  documentModel.nextEntityId += 1;
+  documentModel.entities.push(textEntity);
+  renderEntities();
+  return textEntity;
+}
+
+function handleTextPlacementClick(event) {
+  const height = resolveArithmeticInput(textHeightInput, {
+    messageElement: textToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for the text height.",
+    validationMessage: (value) =>
+      value > 0 ? null : "Text height must be greater than zero.",
+    successMessage: "Move the text with the pointer, then click to place it.",
+  });
+  const content = getTextContentInputValue();
+  textContentInput.setCustomValidity(content ? "" : "Enter text to place.");
+  if (!textForm.reportValidity() || height === null || content === null) return;
+
+  const position = screenToWorld(event);
+  const textEntity = addTextEntity(position, height, content);
+  closeTextWindow(
+    `Created text ${textEntity.id} at X${formatCoordinate(position.x)} Y${formatCoordinate(position.y)}.`,
+  );
 }
 
 function getOffsetAmount() {
@@ -7193,7 +11578,8 @@ function trimCircleToArc(sourceCircle, targetEntity) {
   } else if (targetEntity.type === "circle") {
     const targetCenter = getPointById(targetEntity.centerPointId);
     if (!targetCenter) {
-      commandStatus.textContent = "Trim/Extend: The target circle is not usable.";
+      commandStatus.textContent =
+        "Trim/Extend: The target circle is not usable.";
       return;
     }
     intersections = intersectCircles(
@@ -7259,7 +11645,8 @@ function handleTrimExtendClick(event) {
       const endpoints = getLineEndpointPair(sourceEntity);
       if (!endpoints) {
         trimExtendState.sourceEntityId = null;
-        commandStatus.textContent = "Trim/Extend: The selected line is not usable.";
+        commandStatus.textContent =
+          "Trim/Extend: The selected line is not usable.";
         return;
       }
       const keepStart =
@@ -7279,7 +11666,8 @@ function handleTrimExtendClick(event) {
       const centerPoint = getPointById(sourceEntity.centerPointId);
       if (!centerPoint) {
         trimExtendState.sourceEntityId = null;
-        commandStatus.textContent = "Trim/Extend: The selected circle is not usable.";
+        commandStatus.textContent =
+          "Trim/Extend: The selected circle is not usable.";
         return;
       }
       trimExtendState.endpointProperty = null;
@@ -7345,7 +11733,8 @@ function handleTrimExtendClick(event) {
   };
   const lineLength = Math.hypot(direction.x, direction.y);
   if (lineLength <= GEOMETRY_EPSILON) {
-    commandStatus.textContent = "Trim/Extend: The selected line has no usable length.";
+    commandStatus.textContent =
+      "Trim/Extend: The selected line has no usable length.";
     return;
   }
 
@@ -7397,7 +11786,8 @@ function handleTrimExtendClick(event) {
   } else if (targetEntity.type === "circle") {
     const centerPoint = getPointById(targetEntity.centerPointId);
     if (!centerPoint) {
-      commandStatus.textContent = "Trim/Extend: The target circle has no center point.";
+      commandStatus.textContent =
+        "Trim/Extend: The target circle has no center point.";
       return;
     }
 
@@ -7447,6 +11837,7 @@ function handleTrimExtendClick(event) {
     endpointPoint = {
       id: documentModel.nextEntityId,
       type: "point",
+      layerId: documentModel.currentLayerId,
       x: targetPoint.x,
       y: targetPoint.y,
     };
@@ -7476,7 +11867,8 @@ function handleOffsetClick(event) {
   if (offsetState.sourceEntityId === null) {
     const entityElement = event.target.closest(".line-entity, .circle-entity");
     if (!entityElement) {
-      commandStatus.textContent = "Offset: Select a line or circle; points are not supported.";
+      commandStatus.textContent =
+        "Offset: Select a line or circle; points are not supported.";
       return;
     }
 
@@ -7529,7 +11921,8 @@ function handleOffsetClick(event) {
     };
     const signedSide = crossProduct(direction, clickVector) / lineLength;
     if (Math.abs(signedSide) <= 1e-6) {
-      offsetToolMessage.textContent = "Click clearly on one side of the selected line.";
+      offsetToolMessage.textContent =
+        "Click clearly on one side of the selected line.";
       commandStatus.textContent = "Offset: Choose one side of the line.";
       return;
     }
@@ -7561,7 +11954,8 @@ function handleOffsetClick(event) {
     if (Math.abs(clickRadius - sourceEntity.radius) <= sideTolerance) {
       offsetToolMessage.textContent =
         "Click clearly inside or outside the selected circle.";
-      commandStatus.textContent = "Offset: Choose inside or outside the circle.";
+      commandStatus.textContent =
+        "Offset: Choose inside or outside the circle.";
       return;
     }
 
@@ -7572,7 +11966,8 @@ function handleOffsetClick(event) {
     if (nextRadius <= GEOMETRY_EPSILON) {
       offsetToolMessage.textContent =
         "That inward offset would make the circle radius zero or negative.";
-      commandStatus.textContent = "Offset: Inward amount is too large for this circle.";
+      commandStatus.textContent =
+        "Offset: Inward amount is too large for this circle.";
       return;
     }
 
@@ -7586,8 +11981,7 @@ function handleOffsetClick(event) {
   offsetSourceReadout.textContent = "None selected";
   offsetToolMessage.textContent = `${resultMessage} Select the next line or circle.`;
   renderEntities();
-  commandStatus.textContent =
-    `${resultMessage} Offset remains active; select the next line or circle.`;
+  commandStatus.textContent = `${resultMessage} Offset remains active; select the next line or circle.`;
 }
 
 function positionFilletWindowInitially() {
@@ -7714,7 +12108,8 @@ function activateFillet() {
 function handleFilletClick(event) {
   const radius = resolveArithmeticInput(filletRadiusInput, {
     messageElement: filletToolMessage,
-    invalidMessage: "Enter a valid arithmetic expression for the fillet radius.",
+    invalidMessage:
+      "Enter a valid arithmetic expression for the fillet radius.",
     validationMessage: (value) =>
       value > 0 ? null : "Enter a fillet radius greater than zero.",
     successMessage: () =>
@@ -7746,19 +12141,19 @@ function handleFilletClick(event) {
   if (filletState.firstEntityId === null) {
     filletState.firstEntityId = entity.id;
     filletState.firstPickWorld = { x: pickWorld.x, y: pickWorld.y };
-    filletSourceReadout.textContent =
-      `${entity.type[0].toUpperCase()}${entity.type.slice(1)} ${entity.id}`;
+    filletSourceReadout.textContent = `${entity.type[0].toUpperCase()}${entity.type.slice(1)} ${entity.id}`;
     filletToolMessage.textContent =
       "Select the second entity near the intended fillet.";
     renderEntities();
-    commandStatus.textContent =
-      `Fillet Radius: ${entity.type} ${entity.id} selected; choose the second entity.`;
+    commandStatus.textContent = `Fillet Radius: ${entity.type} ${entity.id} selected; choose the second entity.`;
     return;
   }
 
   const firstEntity = getEntityById(filletState.firstEntityId);
   if (!firstEntity) {
-    resetFilletFirst("Fillet Radius: The first entity is missing; select again.");
+    resetFilletFirst(
+      "Fillet Radius: The first entity is missing; select again.",
+    );
     return;
   }
   if (entity.id === firstEntity.id) {
@@ -7776,10 +12171,9 @@ function handleFilletClick(event) {
     filletTrimExtendInput.checked,
   );
   if (!candidate) {
-    filletToolMessage.textContent =
-      filletTrimExtendInput.checked
-        ? "No tangent fillet was found for that radius and those selections."
-        : "No tangent fillet fits on both existing entity spans. Enable Trim/Extend or choose another radius.";
+    filletToolMessage.textContent = filletTrimExtendInput.checked
+      ? "No tangent fillet was found for that radius and those selections."
+      : "No tangent fillet fits on both existing entity spans. Enable Trim/Extend or choose another radius.";
     commandStatus.textContent =
       "Fillet Radius: No valid tangent solution; choose another second entity or radius.";
     return;
@@ -7860,6 +12254,7 @@ function deactivateRotate(statusMessage) {
   const wasActive = rotateState.active;
   rotateState.active = false;
   rotateState.entityId = null;
+  rotateState.solidIds = [];
   rotateState.pivotPointId = null;
   rotateState.awaitingPivot = false;
   cadCanvas.classList.remove("rotate-active");
@@ -7869,7 +12264,11 @@ function deactivateRotate(statusMessage) {
   }
   setRotateWindowMinimized(false);
   rotateWindow.hidden = true;
-  if (wasActive && getEntityById(selectionState.selectedEntityId)) {
+  if (
+    wasActive &&
+    !is3dWorkspace() &&
+    getEntityById(selectionState.selectedEntityId)
+  ) {
     selectionState.mode = "single";
     cadCanvas.classList.add("select-single");
   }
@@ -7908,6 +12307,38 @@ function useRotateOrigin() {
 function activateRotate() {
   dismissModifyMenu();
   deactivatePointSketch();
+  if (is3dWorkspace()) {
+    const selectedSolids = getSelectedModelSolids().filter((solid) =>
+      isEntityOnCurrentLayer(solid),
+    );
+    if (!selectedSolids.length) {
+      commandStatus.textContent =
+        "Rotate needs one or more selected 3D solids.";
+      return;
+    }
+    if (!translateWindow.hidden) closeTranslateWindow(null);
+    rotateState.active = true;
+    rotateState.entityId = null;
+    rotateState.solidIds = selectedSolids.map((solid) => solid.id);
+    rotateState.pivotPointId = null;
+    rotateState.awaitingPivot = false;
+    rotateAxisXInput.checked = true;
+    rotateSelectionReadout.textContent =
+      `${selectedSolids.length} selected ` +
+      `${selectedSolids.length === 1 ? "solid" : "solids"}`;
+    rotateToolMessage.textContent =
+      "Choose an origin axis and enter a counterclockwise angle.";
+    rotateAngleInput.setCustomValidity("");
+    rotateWindow.hidden = false;
+    setRotateWindowMinimized(false);
+    if (!rotateWindowState.hasPosition) positionRotateWindowInitially();
+    rotateAngleInput.focus();
+    rotateAngleInput.select();
+    commandStatus.textContent =
+      `Rotate: ${selectedSolids.length} ` +
+      `${selectedSolids.length === 1 ? "solid" : "solids"} selected.`;
+    return;
+  }
   const selectedEntity = getEntityById(selectionState.selectedEntityId);
   if (!selectedEntity) {
     commandStatus.textContent =
@@ -7947,8 +12378,7 @@ function activateRotate() {
   renderEntities();
   rotateAngleInput.focus();
   rotateAngleInput.select();
-  commandStatus.textContent =
-    `Rotate: ${describeRotateEntity(selectedEntity)} around X0 Y0.`;
+  commandStatus.textContent = `Rotate: ${describeRotateEntity(selectedEntity)} around X0 Y0.`;
 }
 
 function handleRotatePivotClick(event) {
@@ -7962,8 +12392,7 @@ function handleRotatePivotClick(event) {
   rotateState.pivotPointId = point.id;
   rotateState.awaitingPivot = false;
   cadCanvas.classList.remove("rotate-pivot-pick");
-  rotatePivotReadout.textContent =
-    `Point ${point.id}: X${formatCoordinate(point.x)} Y${formatCoordinate(point.y)}`;
+  rotatePivotReadout.textContent = `Point ${point.id}: X${formatCoordinate(point.x)} Y${formatCoordinate(point.y)}`;
   rotateToolMessage.textContent =
     "Enter a counterclockwise angle, then choose Rotate.";
   commandStatus.textContent = `Rotate: Point ${point.id} selected as the pivot.`;
@@ -7996,6 +12425,47 @@ function rotateSelectedEntity() {
     commandStatus.textContent = "Rotate: Enter a valid angle.";
     rotateAngleInput.focus();
     rotateAngleInput.select();
+    return;
+  }
+
+  if (is3dWorkspace()) {
+    const selectedSolids = rotateState.solidIds
+      .map((solidId) => getSolidById(solidId))
+      .filter(
+        (solid) => solid && isEntityOnCurrentLayer(solid),
+      );
+    if (!selectedSolids.length) {
+      deactivateRotate(
+        "Rotate canceled: the selected solids no longer exist.",
+      );
+      return;
+    }
+    if (Math.abs(angleDegrees) <= GEOMETRY_EPSILON) {
+      rotateToolMessage.textContent = "Enter a nonzero rotation angle.";
+      commandStatus.textContent = "Rotate: No solid changed.";
+      return;
+    }
+    const axis = rotateAxisYInput.checked
+      ? "y"
+      : rotateAxisZInput.checked
+        ? "z"
+        : "x";
+    const radians = (angleDegrees * Math.PI) / 180;
+    recordDocumentChange(
+      `Rotate ${selectedSolids.length} ` +
+        `${selectedSolids.length === 1 ? "solid" : "solids"} ` +
+        `${formatArithmeticResult(angleDegrees)}° around ${axis.toUpperCase()} axis`,
+    );
+    selectedSolids.forEach((solid) => {
+      prependSolidTransform(solid, getAxisRotationMatrix4(axis, radians));
+    });
+    renderEntities();
+    const resultMessage =
+      `Rotated ${selectedSolids.length} selected ` +
+      `${selectedSolids.length === 1 ? "solid" : "solids"} ` +
+      `${formatArithmeticResult(angleDegrees)}° around the ${axis.toUpperCase()} axis.`;
+    rotateToolMessage.textContent = resultMessage;
+    commandStatus.textContent = resultMessage;
     return;
   }
 
@@ -8042,8 +12512,10 @@ function rotateSelectedEntity() {
   }
 
   if (!pointProperties.length || pointProperties.some(({ point }) => !point)) {
-    rotateToolMessage.textContent = "The selected entity has unusable geometry.";
-    commandStatus.textContent = "Rotate: The selected entity could not be rotated.";
+    rotateToolMessage.textContent =
+      "The selected entity has unusable geometry.";
+    commandStatus.textContent =
+      "Rotate: The selected entity could not be rotated.";
     return;
   }
 
@@ -8057,8 +12529,7 @@ function rotateSelectedEntity() {
       Math.hypot(point.x - rotated.x, point.y - rotated.y) > GEOMETRY_EPSILON,
   );
   if (!changed) {
-    rotateToolMessage.textContent =
-      `That rotation leaves ${describeRotateEntity(entity)} unchanged.`;
+    rotateToolMessage.textContent = `That rotation leaves ${describeRotateEntity(entity)} unchanged.`;
     commandStatus.textContent = "Rotate: No geometry changed.";
     return;
   }
@@ -8086,10 +12557,14 @@ function rotateSelectedEntity() {
 }
 
 function mirrorWorldPoint(worldPoint, axisMode) {
-  const mirrorX = axisMode === "y" || axisMode === "both";
-  const mirrorY = axisMode === "x" || axisMode === "both";
-  const x = mirrorX ? -worldPoint.x : worldPoint.x;
-  const y = mirrorY ? -worldPoint.y : worldPoint.y;
+  let x = worldPoint.x;
+  let y = worldPoint.y;
+  if (axisMode === "x") y = -y;
+  else if (axisMode === "y") x = -x;
+  else if (axisMode === "both") {
+    x = -x;
+    y = -y;
+  }
   return {
     x: Math.abs(x) <= 1e-12 ? 0 : x,
     y: Math.abs(y) <= 1e-12 ? 0 : y,
@@ -8121,167 +12596,1400 @@ function getEntityPointProperties(entity) {
   return [];
 }
 
-function addMirroredEntityCopy(entity, axisMode) {
-  if (entity.type === "point") {
-    const mirrored = mirrorWorldPoint(entity, axisMode);
-    const point = {
-      id: documentModel.nextEntityId,
-      type: "point",
-      x: mirrored.x,
-      y: mirrored.y,
-    };
-    documentModel.nextEntityId += 1;
-    documentModel.entities.push(point);
-    return point;
-  }
+function mirrorAngleRadians(angle, axisMode) {
+  const mirroredDirection = mirrorWorldPoint(
+    { x: Math.cos(angle), y: Math.sin(angle) },
+    axisMode,
+  );
+  return normalizeAngle(Math.atan2(mirroredDirection.y, mirroredDirection.x));
+}
 
-  if (entity.type === "line") {
-    const startPoint = getPointById(entity.startPointId);
-    const endPoint = getPointById(entity.endPointId);
-    if (!startPoint || !endPoint) return null;
-    return createIndependentLineWithoutHistory(
-      mirrorWorldPoint(startPoint, axisMode),
-      mirrorWorldPoint(endPoint, axisMode),
-    ).line;
-  }
-
-  if (entity.type === "circle") {
-    const centerPoint = getPointById(entity.centerPointId);
-    if (!centerPoint) return null;
-    const centerReference = createConstructionPointWithoutHistory(
-      mirrorWorldPoint(centerPoint, axisMode),
+function getMirroredDimensionEntity(entity, axisMode) {
+  const mirrored = { ...entity };
+  if (entity.dimensionType === "linear") {
+    const start = mirrorWorldPoint(
+      { x: entity.startX, y: entity.startY },
+      axisMode,
     );
-    const circle = {
-      id: documentModel.nextEntityId,
-      type: "circle",
-      centerPointId: centerReference.id,
-      radius: entity.radius,
-    };
-    documentModel.nextEntityId += 1;
-    documentModel.entities.push(circle);
-    return circle;
+    const end = mirrorWorldPoint({ x: entity.endX, y: entity.endY }, axisMode);
+    const dimensionStart = mirrorWorldPoint(
+      { x: entity.dimensionStartX, y: entity.dimensionStartY },
+      axisMode,
+    );
+    const dimensionEnd = mirrorWorldPoint(
+      { x: entity.dimensionEndX, y: entity.dimensionEndY },
+      axisMode,
+    );
+    Object.assign(mirrored, {
+      startX: start.x,
+      startY: start.y,
+      endX: end.x,
+      endY: end.y,
+      dimensionStartX: dimensionStart.x,
+      dimensionStartY: dimensionStart.y,
+      dimensionEndX: dimensionEnd.x,
+      dimensionEndY: dimensionEnd.y,
+    });
+    return mirrored;
   }
 
-  if (entity.type === "arc") {
-    const centerPoint = getPointById(entity.centerPointId);
-    const startPoint = getPointById(entity.startPointId);
-    const endPoint = getPointById(entity.endPointId);
-    if (!centerPoint || !startPoint || !endPoint) return null;
-    const centerReference = createConstructionPointWithoutHistory(
-      mirrorWorldPoint(centerPoint, axisMode),
+  if (
+    entity.dimensionType === "radius" ||
+    entity.dimensionType === "diameter"
+  ) {
+    const center = mirrorWorldPoint(
+      { x: entity.centerX, y: entity.centerY },
+      axisMode,
     );
-    let mirroredStart = mirrorWorldPoint(startPoint, axisMode);
-    let mirroredEnd = mirrorWorldPoint(endPoint, axisMode);
+    mirrored.centerX = center.x;
+    mirrored.centerY = center.y;
+    mirrored.angle = mirrorAngleRadians(entity.angle, axisMode);
+    return mirrored;
+  }
+
+  if (entity.dimensionType === "angle") {
+    const center = mirrorWorldPoint(
+      { x: entity.centerX, y: entity.centerY },
+      axisMode,
+    );
+    let startAngle = mirrorAngleRadians(entity.startAngle, axisMode);
+    let endAngle = mirrorAngleRadians(entity.endAngle, axisMode);
     if (axisMode !== "both") {
-      [mirroredStart, mirroredEnd] = [mirroredEnd, mirroredStart];
+      [startAngle, endAngle] = [endAngle, startAngle];
     }
-    const startReference = createConstructionPointWithoutHistory(mirroredStart);
-    const endReference = createConstructionPointWithoutHistory(mirroredEnd);
-    const arc = {
-      id: documentModel.nextEntityId,
-      type: "arc",
-      centerPointId: centerReference.id,
-      startPointId: startReference.id,
-      endPointId: endReference.id,
-      radius: entity.radius,
-    };
-    documentModel.nextEntityId += 1;
-    documentModel.entities.push(arc);
-    return arc;
+    mirrored.centerX = center.x;
+    mirrored.centerY = center.y;
+    mirrored.startAngle = startAngle;
+    mirrored.endAngle = endAngle;
+    return mirrored;
   }
 
   return null;
 }
 
-function mirrorSelectedEntity(axisMode) {
-  dismissModifyMenu();
-  const entity = getEntityById(selectionState.selectedEntityId);
-  const axisDescription =
-    axisMode === "x"
-      ? "X axis"
-      : axisMode === "y"
-        ? "Y axis"
-        : "X and Y axes";
-  if (!entity) {
-    commandStatus.textContent =
-      `Mirror - ${axisDescription}: Select an entity first.`;
-    return;
+function isEntityMirrorable(entity) {
+  if (entity.type === "dimension") {
+    return getMirroredDimensionEntity(entity, "both") !== null;
   }
-
   const pointProperties = getEntityPointProperties(entity);
-  if (!pointProperties.length || pointProperties.some(({ point }) => !point)) {
-    commandStatus.textContent =
-      `Mirror - ${axisDescription}: The selected entity has unusable geometry.`;
-    return;
+  return (
+    pointProperties.length > 0 &&
+    pointProperties.every(
+      ({ point }) =>
+        point && Number.isFinite(point.x) && Number.isFinite(point.y),
+    )
+  );
+}
+
+function getSelectedMirrorEntities() {
+  return documentModel.entities.filter(
+    (entity) =>
+      selectionState.selectedEntityIds.has(entity.id) &&
+      isEntityOnCurrentLayer(entity) &&
+      (entity.type !== "point" || !entity.isConstruction),
+  );
+}
+
+function selectionChangesUnderMirror(selectedEntities, axisMode) {
+  return selectedEntities.some((entity) => {
+    if (entity.type === "dimension") {
+      const mirrored = getMirroredDimensionEntity(entity, axisMode);
+      return mirrored && JSON.stringify(mirrored) !== JSON.stringify(entity);
+    }
+    return getEntityPointProperties(entity).some(({ point }) => {
+      const mirrored = mirrorWorldPoint(point, axisMode);
+      return (
+        Math.hypot(point.x - mirrored.x, point.y - mirrored.y) >
+        GEOMETRY_EPSILON
+      );
+    });
+  });
+}
+
+function addMirroredSelectionCopies(selectedEntities, axisMode) {
+  const selectedEntityIdSet = new Set(
+    selectedEntities.map((entity) => entity.id),
+  );
+  const copiedPointIdBySourceId = new Map();
+  const copiedRootIds = [];
+
+  function getOrCreateMirroredPointCopy(sourcePointId) {
+    if (copiedPointIdBySourceId.has(sourcePointId)) {
+      return copiedPointIdBySourceId.get(sourcePointId);
+    }
+    const sourcePoint = getPointById(sourcePointId);
+    if (!sourcePoint) return null;
+    const mirrored = mirrorWorldPoint(sourcePoint, axisMode);
+    const pointCopy = {
+      id: documentModel.nextEntityId,
+      type: "point",
+      layerId: documentModel.currentLayerId,
+      x: mirrored.x,
+      y: mirrored.y,
+    };
+    if (!selectedEntityIdSet.has(sourcePointId)) {
+      pointCopy.isConstruction = true;
+    }
+    documentModel.nextEntityId += 1;
+    documentModel.entities.push(pointCopy);
+    copiedPointIdBySourceId.set(sourcePointId, pointCopy.id);
+    return pointCopy.id;
   }
 
-  if (mirrorCopyInput.checked) {
-    recordDocumentChange(
-      `Mirror and copy ${entity.type} ${entity.id} across ${axisDescription}`,
-    );
-    const mirroredCopy = addMirroredEntityCopy(entity, axisMode);
-    if (!mirroredCopy) {
-      historyState.undoStack.pop();
-      updateEditMenuState();
-      commandStatus.textContent =
-        `Mirror - ${axisDescription}: The selected entity could not be copied.`;
+  selectedEntities.forEach((entity) => {
+    if (entity.type === "point") {
+      const copiedPointId = getOrCreateMirroredPointCopy(entity.id);
+      if (copiedPointId !== null) copiedRootIds.push(copiedPointId);
       return;
     }
-    selectionState.selectedEntityId = mirroredCopy.id;
+
+    if (entity.type === "dimension") {
+      const dimensionCopy = getMirroredDimensionEntity(entity, axisMode);
+      if (!dimensionCopy) return;
+      dimensionCopy.id = documentModel.nextEntityId;
+      dimensionCopy.layerId = documentModel.currentLayerId;
+      documentModel.nextEntityId += 1;
+      documentModel.entities.push(dimensionCopy);
+      copiedRootIds.push(dimensionCopy.id);
+      return;
+    }
+
+    const entityCopy = {
+      ...entity,
+      id: documentModel.nextEntityId,
+      layerId: documentModel.currentLayerId,
+    };
+    documentModel.nextEntityId += 1;
+    getEntityPointProperties(entity).forEach(({ property, point }) => {
+      entityCopy[property] = getOrCreateMirroredPointCopy(point.id);
+    });
+    if (entity.type === "arc" && axisMode !== "both") {
+      [entityCopy.startPointId, entityCopy.endPointId] = [
+        entityCopy.endPointId,
+        entityCopy.startPointId,
+      ];
+    }
+    documentModel.entities.push(entityCopy);
+    copiedRootIds.push(entityCopy.id);
+  });
+
+  return copiedRootIds;
+}
+
+function mirrorSelectedEntities(axisMode) {
+  dismissModifyMenu();
+  const axisDescription =
+    is3dWorkspace()
+      ? axisMode === "x"
+        ? "XY plane"
+        : axisMode === "y"
+          ? "XZ plane"
+          : "YZ plane"
+      : axisMode === "x"
+        ? "X axis"
+        : axisMode === "y"
+          ? "Y axis"
+          : "X and Y axes";
+  if (is3dWorkspace()) {
+    const selectedSolids = getSelectedModelSolids().filter((solid) =>
+      isEntityOnCurrentLayer(solid),
+    );
+    if (!selectedSolids.length) {
+      commandStatus.textContent =
+        `Mirror - ${axisDescription}: Select one or more solids first.`;
+      return;
+    }
+    const reflectedCoordinate =
+      axisMode === "x" ? "z" : axisMode === "y" ? "y" : "x";
+    const changesSelection = selectedSolids.some((solid) =>
+      getSolidWorldVertices(solid).some(
+        (vertex) =>
+          Math.abs(vertex[reflectedCoordinate]) > GEOMETRY_EPSILON,
+      ),
+    );
+    if (!changesSelection && !mirrorCopyInput.checked) {
+      commandStatus.textContent =
+        `Mirror - ${axisDescription}: The selected solids already lie on that plane.`;
+      return;
+    }
+    const copySelection = mirrorCopyInput.checked;
+    recordDocumentChange(
+      `${copySelection ? "Mirror and copy" : "Mirror"} ` +
+        `${selectedSolids.length} ${selectedSolids.length === 1 ? "solid" : "solids"} ` +
+        `across ${axisDescription}`,
+    );
+    if (copySelection) clearModelSelection();
+    selectedSolids.forEach((sourceSolid) => {
+      const solid = copySelection
+        ? clonePlainModelValue(sourceSolid)
+        : sourceSolid;
+      prependSolidTransform(solid, getReflectionMatrix4(reflectedCoordinate));
+      if (copySelection) {
+        solid.id = documentModel.model3d.nextSolidId;
+        solid.layerId = documentModel.currentLayerId;
+        documentModel.model3d.nextSolidId += 1;
+        documentModel.model3d.solids.push(solid);
+        modelSelectionState.selectedSolidIds.add(solid.id);
+      }
+    });
+    renderEntities();
+    commandStatus.textContent =
+      `${copySelection ? "Mirrored and copied" : "Mirrored"} ` +
+      `${selectedSolids.length} selected ` +
+      `${selectedSolids.length === 1 ? "solid" : "solids"} ` +
+      `across the ${axisDescription}.`;
+    return;
+  }
+
+  const selectedEntities = getSelectedMirrorEntities();
+  if (!selectedEntities.length) {
+    commandStatus.textContent = `Mirror - ${axisDescription}: Select one or more entities first.`;
+    return;
+  }
+  if (selectedEntities.some((entity) => !isEntityMirrorable(entity))) {
+    commandStatus.textContent = `Mirror - ${axisDescription}: The selection contains unusable geometry.`;
+    return;
+  }
+
+  const entityWord = selectedEntities.length === 1 ? "entity" : "entities";
+  if (mirrorCopyInput.checked) {
+    recordDocumentChange(
+      `Mirror and copy ${selectedEntities.length} ${entityWord} across ${axisDescription}`,
+    );
+    const copiedRootIds = addMirroredSelectionCopies(
+      selectedEntities,
+      axisMode,
+    );
+    selectionState.selectedEntityIds.clear();
+    copiedRootIds.forEach((entityId) =>
+      selectionState.selectedEntityIds.add(entityId),
+    );
+    selectionState._selectedEntityId =
+      copiedRootIds.length === 1 ? copiedRootIds[0] : null;
     selectionState.hoveredEntityId = null;
     selectionState.pickCycle = null;
     renderEntities();
     commandStatus.textContent =
-      `Mirrored and copied ${entity.type} ${entity.id} across ${axisDescription} ` +
-      `as ${mirroredCopy.type} ${mirroredCopy.id}.`;
+      `Mirrored and copied ${selectedEntities.length} selected ${entityWord} ` +
+      `across the ${axisDescription}.`;
     return;
   }
 
-  const transformations = pointProperties.map(({ property, point }) => ({
-    property,
-    point,
-    mirrored: mirrorWorldPoint(point, axisMode),
-  }));
-  const reflectionReversesArc = entity.type === "arc" && axisMode !== "both";
-  const changed =
-    reflectionReversesArc ||
-    transformations.some(
-      ({ point, mirrored }) =>
-        Math.hypot(point.x - mirrored.x, point.y - mirrored.y) >
-        GEOMETRY_EPSILON,
-    );
-  if (!changed) {
-    commandStatus.textContent =
-      `Mirror - ${axisDescription}: ${entity.type} ${entity.id} already lies symmetrically on that axis.`;
+  if (!selectionChangesUnderMirror(selectedEntities, axisMode)) {
+    commandStatus.textContent = `Mirror - ${axisDescription}: The selected geometry already lies on that axis.`;
     return;
   }
+
+  const selectedEntityIds = new Set(
+    selectedEntities.map((entity) => entity.id),
+  );
+  const selectedPointIds = new Set(
+    selectedEntities
+      .filter((entity) => entity.type === "point")
+      .map((entity) => entity.id),
+  );
+  const movingSelectedPointIds = new Set(
+    [...selectedPointIds].filter((pointId) => {
+      const point = getPointById(pointId);
+      const mirrored = mirrorWorldPoint(point, axisMode);
+      return (
+        Math.hypot(point.x - mirrored.x, point.y - mirrored.y) >
+        GEOMETRY_EPSILON
+      );
+    }),
+  );
+  const sourcePointById = new Map();
+  selectedEntities.forEach((entity) => {
+    getEntityPointProperties(entity).forEach(({ point }) => {
+      sourcePointById.set(point.id, { x: point.x, y: point.y });
+    });
+  });
 
   recordDocumentChange(
-    `Mirror ${entity.type} ${entity.id} across ${axisDescription}`,
+    `Mirror ${selectedEntities.length} ${entityWord} across ${axisDescription}`,
   );
-  if (entity.type === "point") {
-    entity.x = transformations[0].mirrored.x;
-    entity.y = transformations[0].mirrored.y;
-  } else {
-    transformations.forEach(({ property, point, mirrored }) => {
-      entity[property] = point.isConstruction
-        ? createConstructionPointWithoutHistory(mirrored).id
-        : getOrCreatePointWithoutHistory(mirrored).id;
+  detachEntityReferencesFromPoints(selectedEntityIds, movingSelectedPointIds);
+  movingSelectedPointIds.forEach((pointId) => {
+    const point = getPointById(pointId);
+    const mirrored = mirrorWorldPoint(point, axisMode);
+    point.x = mirrored.x;
+    point.y = mirrored.y;
+  });
+
+  const mirroredReferenceIdBySourceId = new Map();
+  function getMirroredReferenceId(sourcePointId) {
+    if (selectedPointIds.has(sourcePointId)) return sourcePointId;
+    if (mirroredReferenceIdBySourceId.has(sourcePointId)) {
+      return mirroredReferenceIdBySourceId.get(sourcePointId);
+    }
+    const sourcePoint = sourcePointById.get(sourcePointId);
+    const mirroredReference = createConstructionPointWithoutHistory(
+      mirrorWorldPoint(sourcePoint, axisMode),
+    );
+    mirroredReferenceIdBySourceId.set(sourcePointId, mirroredReference.id);
+    return mirroredReference.id;
+  }
+
+  selectedEntities.forEach((entity) => {
+    if (entity.type === "point") return;
+    if (entity.type === "dimension") {
+      Object.assign(entity, getMirroredDimensionEntity(entity, axisMode));
+      return;
+    }
+    getEntityPointProperties(entity).forEach(({ property, point }) => {
+      entity[property] = getMirroredReferenceId(point.id);
     });
-    if (reflectionReversesArc) {
+    if (entity.type === "arc" && axisMode !== "both") {
       [entity.startPointId, entity.endPointId] = [
         entity.endPointId,
         entity.startPointId,
       ];
     }
-  }
+  });
 
   pruneUnusedConstructionPoints();
   selectionState.hoveredEntityId = null;
   selectionState.pickCycle = null;
   renderEntities();
   commandStatus.textContent =
-    `Mirrored ${entity.type} ${entity.id} across ${axisDescription}.`;
+    `Mirrored ${selectedEntities.length} selected ${entityWord} ` +
+    `across the ${axisDescription}.`;
+}
+
+function positionTranslateWindowInitially() {
+  const windowBounds = translateWindow.getBoundingClientRect();
+  const left = Math.max(8, window.innerWidth - windowBounds.width - 24);
+  const top = Math.min(
+    112,
+    Math.max(8, window.innerHeight - windowBounds.height - 36),
+  );
+  translateWindow.style.left = `${left}px`;
+  translateWindow.style.top = `${top}px`;
+  translateWindowState.hasPosition = true;
+}
+
+function setTranslateWindowMinimized(minimized) {
+  translateWindow.classList.toggle("is-minimized", minimized);
+  translateMinimizeButton.setAttribute(
+    "aria-label",
+    minimized ? "Restore Translate" : "Minimize Translate",
+  );
+  translateMinimizeButton.title = minimized ? "Restore" : "Minimize";
+}
+
+function restoreTranslateWindow() {
+  translateWindow.classList.remove("is-maximized");
+  if (translateWindowState.restoreBounds) {
+    const { left, top, width } = translateWindowState.restoreBounds;
+    translateWindow.style.left = `${left}px`;
+    translateWindow.style.top = `${top}px`;
+    translateWindow.style.width = `${width}px`;
+  }
+  translateMaximizeButton.setAttribute("aria-label", "Maximize Translate");
+  translateMaximizeButton.title = "Maximize";
+  translateMaximizeIcon.textContent = "□";
+}
+
+function toggleTranslateWindowMaximized() {
+  setTranslateWindowMinimized(false);
+  if (translateWindow.classList.contains("is-maximized")) {
+    restoreTranslateWindow();
+    return;
+  }
+  const bounds = translateWindow.getBoundingClientRect();
+  translateWindowState.restoreBounds = {
+    left: bounds.left,
+    top: bounds.top,
+    width: bounds.width,
+  };
+  translateWindow.classList.add("is-maximized");
+  translateMaximizeButton.setAttribute("aria-label", "Restore Translate");
+  translateMaximizeButton.title = "Restore";
+  translateMaximizeIcon.textContent = "❐";
+}
+
+function closeTranslateWindow(statusMessage) {
+  if (translateWindow.classList.contains("is-maximized")) {
+    restoreTranslateWindow();
+  }
+  setTranslateWindowMinimized(false);
+  translateWindow.hidden = true;
+  if (!is3dWorkspace() && selectionState.selectedEntityIds.size > 0) {
+    selectionState.mode = "single";
+    cadCanvas.classList.add("select-single");
+  }
+  renderEntities();
+  if (statusMessage) commandStatus.textContent = statusMessage;
+}
+
+function getSelectedTranslateEntities() {
+  return documentModel.entities.filter(
+    (entity) =>
+      selectionState.selectedEntityIds.has(entity.id) &&
+      isEntityOnCurrentLayer(entity) &&
+      (entity.type !== "point" || !entity.isConstruction),
+  );
+}
+
+function activateTranslate() {
+  dismissModifyMenu();
+  if (is3dWorkspace()) {
+    const selectedSolids = getSelectedModelSolids().filter((solid) =>
+      isEntityOnCurrentLayer(solid),
+    );
+    if (!selectedSolids.length) {
+      commandStatus.textContent =
+        "Translate: Select one or more 3D solids first.";
+      return;
+    }
+    if (rotateState.active) deactivateRotate();
+    translateSelectionReadout.textContent =
+      `${selectedSolids.length} selected ` +
+      `${selectedSolids.length === 1 ? "solid" : "solids"}`;
+    [translateXInput, translateYInput, translateZInput].forEach((input) => {
+      input.value = "0";
+      input.setCustomValidity("");
+    });
+    translateCopyInput.checked = false;
+    translateToolMessage.textContent =
+      "Enter the X, Y, and Z translation distances.";
+    translateWindow.hidden = false;
+    setTranslateWindowMinimized(false);
+    if (!translateWindowState.hasPosition) positionTranslateWindowInitially();
+    translateXInput.focus();
+    translateXInput.select();
+    commandStatus.textContent =
+      `Translate: ${selectedSolids.length} ` +
+      `${selectedSolids.length === 1 ? "solid" : "solids"} selected.`;
+    return;
+  }
+  const selectedEntities = getSelectedTranslateEntities();
+  if (!selectedEntities.length) {
+    commandStatus.textContent = "Translate: Select one or more entities first.";
+    return;
+  }
+  if (selectedEntities.some((entity) => !isEntityTranslatable(entity))) {
+    commandStatus.textContent =
+      "Translate: The selection contains unusable geometry.";
+    return;
+  }
+
+  deactivatePointSketch();
+  deactivateLineSketch();
+  deactivateJoin();
+  deactivateIntersectingPoint();
+  deactivateThreeEntityCircle();
+  deactivateTrimExtend();
+  deactivatePointOnEntity();
+  deactivateFillet();
+  deactivateRotate();
+  deactivateDimension();
+  deactivateWindowZoom();
+  if (!circleRadiusWindow.hidden) closeCircleRadiusWindow(null);
+  if (!hexagonWindow.hidden) closeHexagonWindow(null);
+  if (!rectangleWindow.hidden) closeRectangleWindow(null);
+  if (!boltHoleCircleWindow.hidden) closeBoltHoleCircleWindow(null);
+  if (!offsetWindow.hidden) closeOffsetWindow(null);
+  if (!pointCoordinatesWindow.hidden) closePointCoordinatesWindow(null);
+  if (!lineCoordinatesWindow.hidden) closeLineCoordinatesWindow(null);
+
+  selectionState.mode = null;
+  cadCanvas.classList.remove("select-single");
+  translateSelectionReadout.textContent =
+    `${selectedEntities.length} selected ` +
+    `${selectedEntities.length === 1 ? "entity" : "entities"}`;
+  translateXInput.value = "0";
+  translateYInput.value = "0";
+  translateXInput.setCustomValidity("");
+  translateYInput.setCustomValidity("");
+  translateCopyInput.checked = false;
+  translateToolMessage.textContent = "Enter the X and Y translation distances.";
+  translateWindow.hidden = false;
+  setTranslateWindowMinimized(false);
+  if (!translateWindowState.hasPosition) positionTranslateWindowInitially();
+  renderEntities();
+  translateXInput.focus();
+  translateXInput.select();
+  commandStatus.textContent =
+    `Translate: ${selectedEntities.length} ` +
+    `${selectedEntities.length === 1 ? "entity" : "entities"} selected.`;
+}
+
+function translateWorldPoint(worldPoint, deltaX, deltaY) {
+  const x = worldPoint.x + deltaX;
+  const y = worldPoint.y + deltaY;
+  return {
+    x: Math.abs(x) <= 1e-12 ? 0 : x,
+    y: Math.abs(y) <= 1e-12 ? 0 : y,
+  };
+}
+
+function getTranslatedDimensionEntity(entity, deltaX, deltaY) {
+  const translated = { ...entity };
+  if (entity.dimensionType === "linear") {
+    translated.startX += deltaX;
+    translated.startY += deltaY;
+    translated.endX += deltaX;
+    translated.endY += deltaY;
+    translated.dimensionStartX += deltaX;
+    translated.dimensionStartY += deltaY;
+    translated.dimensionEndX += deltaX;
+    translated.dimensionEndY += deltaY;
+    return translated;
+  }
+  if (
+    entity.dimensionType === "radius" ||
+    entity.dimensionType === "diameter" ||
+    entity.dimensionType === "angle"
+  ) {
+    translated.centerX += deltaX;
+    translated.centerY += deltaY;
+    return translated;
+  }
+  return null;
+}
+
+function isEntityTranslatable(entity) {
+  if (entity.type === "dimension") {
+    return getTranslatedDimensionEntity(entity, 0, 0) !== null;
+  }
+  const pointProperties = getEntityPointProperties(entity);
+  return (
+    pointProperties.length > 0 &&
+    pointProperties.every(
+      ({ point }) =>
+        point && Number.isFinite(point.x) && Number.isFinite(point.y),
+    )
+  );
+}
+
+function addTranslatedSelectionCopies(selectedEntities, deltaX, deltaY) {
+  const selectedEntityIdSet = new Set(
+    selectedEntities.map((entity) => entity.id),
+  );
+  const copiedPointIdBySourceId = new Map();
+  const copiedRootIds = [];
+
+  function getOrCreateTranslatedPointCopy(sourcePointId) {
+    if (copiedPointIdBySourceId.has(sourcePointId)) {
+      return copiedPointIdBySourceId.get(sourcePointId);
+    }
+    const sourcePoint = getPointById(sourcePointId);
+    if (!sourcePoint) return null;
+    const translatedPoint = translateWorldPoint(sourcePoint, deltaX, deltaY);
+    const pointCopy = {
+      id: documentModel.nextEntityId,
+      type: "point",
+      layerId: documentModel.currentLayerId,
+      x: translatedPoint.x,
+      y: translatedPoint.y,
+    };
+    if (!selectedEntityIdSet.has(sourcePointId)) {
+      pointCopy.isConstruction = true;
+    }
+    documentModel.nextEntityId += 1;
+    documentModel.entities.push(pointCopy);
+    copiedPointIdBySourceId.set(sourcePointId, pointCopy.id);
+    return pointCopy.id;
+  }
+
+  selectedEntities.forEach((entity) => {
+    if (entity.type === "point") {
+      const copiedPointId = getOrCreateTranslatedPointCopy(entity.id);
+      if (copiedPointId !== null) copiedRootIds.push(copiedPointId);
+      return;
+    }
+    if (entity.type === "dimension") {
+      const dimensionCopy = getTranslatedDimensionEntity(
+        entity,
+        deltaX,
+        deltaY,
+      );
+      if (!dimensionCopy) return;
+      dimensionCopy.id = documentModel.nextEntityId;
+      dimensionCopy.layerId = documentModel.currentLayerId;
+      documentModel.nextEntityId += 1;
+      documentModel.entities.push(dimensionCopy);
+      copiedRootIds.push(dimensionCopy.id);
+      return;
+    }
+
+    const entityCopy = {
+      ...entity,
+      id: documentModel.nextEntityId,
+      layerId: documentModel.currentLayerId,
+    };
+    documentModel.nextEntityId += 1;
+    getEntityPointProperties(entity).forEach(({ property, point }) => {
+      entityCopy[property] = getOrCreateTranslatedPointCopy(point.id);
+    });
+    documentModel.entities.push(entityCopy);
+    copiedRootIds.push(entityCopy.id);
+  });
+
+  return copiedRootIds;
+}
+
+function applyTranslationToSelection(
+  selectedEntities,
+  deltaX,
+  deltaY,
+  copySelection,
+  historyLabel,
+) {
+  recordDocumentChange(historyLabel);
+  if (copySelection) {
+    const copiedRootIds = addTranslatedSelectionCopies(
+      selectedEntities,
+      deltaX,
+      deltaY,
+    );
+    selectionState.selectedEntityIds.clear();
+    copiedRootIds.forEach((entityId) =>
+      selectionState.selectedEntityIds.add(entityId),
+    );
+    selectionState._selectedEntityId =
+      copiedRootIds.length === 1 ? copiedRootIds[0] : null;
+    selectionState.hoveredEntityId = null;
+    selectionState.pickCycle = null;
+    return { copiedRootIds };
+  }
+
+  const selectedEntityIds = new Set(
+    selectedEntities.map((entity) => entity.id),
+  );
+  const selectedPointIds = new Set(
+    selectedEntities
+      .filter((entity) => entity.type === "point")
+      .map((entity) => entity.id),
+  );
+  const sourcePointById = new Map();
+  selectedEntities.forEach((entity) => {
+    getEntityPointProperties(entity).forEach(({ point }) => {
+      sourcePointById.set(point.id, { x: point.x, y: point.y });
+    });
+  });
+
+  detachEntityReferencesFromPoints(selectedEntityIds, selectedPointIds);
+  selectedPointIds.forEach((pointId) => {
+    const point = getPointById(pointId);
+    const translatedPoint = translateWorldPoint(point, deltaX, deltaY);
+    point.x = translatedPoint.x;
+    point.y = translatedPoint.y;
+  });
+
+  const translatedReferenceIdBySourceId = new Map();
+  function getTranslatedReferenceId(sourcePointId) {
+    if (selectedPointIds.has(sourcePointId)) return sourcePointId;
+    if (translatedReferenceIdBySourceId.has(sourcePointId)) {
+      return translatedReferenceIdBySourceId.get(sourcePointId);
+    }
+    const sourcePoint = sourcePointById.get(sourcePointId);
+    const translatedReference = createConstructionPointWithoutHistory(
+      translateWorldPoint(sourcePoint, deltaX, deltaY),
+    );
+    translatedReferenceIdBySourceId.set(sourcePointId, translatedReference.id);
+    return translatedReference.id;
+  }
+
+  selectedEntities.forEach((entity) => {
+    if (entity.type === "point") return;
+    if (entity.type === "dimension") {
+      Object.assign(
+        entity,
+        getTranslatedDimensionEntity(entity, deltaX, deltaY),
+      );
+      return;
+    }
+    getEntityPointProperties(entity).forEach(({ property, point }) => {
+      entity[property] = getTranslatedReferenceId(point.id);
+    });
+  });
+
+  pruneUnusedConstructionPoints();
+  selectionState.hoveredEntityId = null;
+  selectionState.pickCycle = null;
+  return { copiedRootIds: [] };
+}
+
+function translateSelectedEntities() {
+  const deltaX = resolveArithmeticInput(translateXInput, {
+    messageElement: translateToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for X.",
+    successMessage: "Enter the X and Y translation distances.",
+  });
+  if (deltaX === null) {
+    commandStatus.textContent = "Translate: Enter a valid X distance.";
+    translateXInput.focus();
+    translateXInput.select();
+    return;
+  }
+  const deltaY = resolveArithmeticInput(translateYInput, {
+    messageElement: translateToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for Y.",
+    successMessage: "Enter the X and Y translation distances.",
+  });
+  if (deltaY === null) {
+    commandStatus.textContent = "Translate: Enter a valid Y distance.";
+    translateYInput.focus();
+    translateYInput.select();
+    return;
+  }
+
+  if (is3dWorkspace()) {
+    const deltaZ = resolveArithmeticInput(translateZInput, {
+      messageElement: translateToolMessage,
+      invalidMessage: "Enter a valid arithmetic expression for Z.",
+      successMessage: "Enter the X, Y, and Z translation distances.",
+    });
+    if (deltaZ === null) {
+      commandStatus.textContent = "Translate: Enter a valid Z distance.";
+      translateZInput.focus();
+      translateZInput.select();
+      return;
+    }
+    const selectedSolids = getSelectedModelSolids().filter((solid) =>
+      isEntityOnCurrentLayer(solid),
+    );
+    if (!selectedSolids.length) {
+      closeTranslateWindow(
+        "Translate canceled: the selected solids no longer exist.",
+      );
+      return;
+    }
+    const isZeroTranslation =
+      Math.abs(deltaX) <= GEOMETRY_EPSILON &&
+      Math.abs(deltaY) <= GEOMETRY_EPSILON &&
+      Math.abs(deltaZ) <= GEOMETRY_EPSILON;
+    if (isZeroTranslation && !translateCopyInput.checked) {
+      translateToolMessage.textContent =
+        "Enter a nonzero X, Y, or Z distance to move the selection.";
+      commandStatus.textContent = "Translate: No solid changed.";
+      return;
+    }
+    const copySelection = translateCopyInput.checked;
+    const distanceDescription =
+      `X${formatLengthResult(deltaX)} Y${formatLengthResult(deltaY)} ` +
+      `Z${formatLengthResult(deltaZ)}`;
+    recordDocumentChange(
+      `${copySelection ? "Translate and copy" : "Translate"} ` +
+        `${selectedSolids.length} ${selectedSolids.length === 1 ? "solid" : "solids"} ` +
+        distanceDescription,
+    );
+    if (copySelection) clearModelSelection();
+    selectedSolids.forEach((sourceSolid) => {
+      const solid = copySelection
+        ? clonePlainModelValue(sourceSolid)
+        : sourceSolid;
+      prependSolidTransform(
+        solid,
+        getTranslationMatrix4(deltaX, deltaY, deltaZ),
+      );
+      if (copySelection) {
+        solid.id = documentModel.model3d.nextSolidId;
+        solid.layerId = documentModel.currentLayerId;
+        documentModel.model3d.nextSolidId += 1;
+        documentModel.model3d.solids.push(solid);
+        modelSelectionState.selectedSolidIds.add(solid.id);
+      }
+    });
+    closeTranslateWindow(
+      `${copySelection ? "Translated and copied" : "Translated"} ` +
+        `${selectedSolids.length} selected ` +
+        `${selectedSolids.length === 1 ? "solid" : "solids"} by ${distanceDescription}.`,
+    );
+    return;
+  }
+
+  const selectedEntities = getSelectedTranslateEntities();
+  if (!selectedEntities.length) {
+    closeTranslateWindow("Translate canceled: the selection no longer exists.");
+    return;
+  }
+  if (selectedEntities.some((entity) => !isEntityTranslatable(entity))) {
+    translateToolMessage.textContent =
+      "The selection contains unusable geometry.";
+    commandStatus.textContent =
+      "Translate: The selected geometry could not be translated.";
+    return;
+  }
+
+  const isZeroTranslation =
+    Math.abs(deltaX) <= GEOMETRY_EPSILON &&
+    Math.abs(deltaY) <= GEOMETRY_EPSILON;
+  if (isZeroTranslation && !translateCopyInput.checked) {
+    translateToolMessage.textContent =
+      "Enter a nonzero X or Y distance to move the selection.";
+    commandStatus.textContent = "Translate: No geometry changed.";
+    return;
+  }
+
+  const entityWord = selectedEntities.length === 1 ? "entity" : "entities";
+  const distanceDescription = `X${formatLengthResult(deltaX)} Y${formatLengthResult(deltaY)}`;
+  if (translateCopyInput.checked) {
+    applyTranslationToSelection(
+      selectedEntities,
+      deltaX,
+      deltaY,
+      true,
+      `Translate and copy ${selectedEntities.length} ${entityWord} ${distanceDescription}`,
+    );
+    closeTranslateWindow(
+      `Translated and copied ${selectedEntities.length} selected ${entityWord} by ${distanceDescription}.`,
+    );
+    return;
+  }
+
+  applyTranslationToSelection(
+    selectedEntities,
+    deltaX,
+    deltaY,
+    false,
+    `Translate ${selectedEntities.length} ${entityWord} ${distanceDescription}`,
+  );
+  closeTranslateWindow(
+    `Translated ${selectedEntities.length} selected ${entityWord} by ${distanceDescription}.`,
+  );
+}
+
+function positionTranslateByPointsWindowInitially() {
+  const windowBounds = translateByPointsWindow.getBoundingClientRect();
+  const left = Math.max(8, window.innerWidth - windowBounds.width - 24);
+  const top = Math.min(
+    112,
+    Math.max(8, window.innerHeight - windowBounds.height - 36),
+  );
+  translateByPointsWindow.style.left = `${left}px`;
+  translateByPointsWindow.style.top = `${top}px`;
+  translateByPointsWindowState.hasPosition = true;
+}
+
+function setTranslateByPointsWindowMinimized(minimized) {
+  translateByPointsWindow.classList.toggle("is-minimized", minimized);
+  translateByPointsMinimizeButton.setAttribute(
+    "aria-label",
+    minimized ? "Restore Translate By Points" : "Minimize Translate By Points",
+  );
+  translateByPointsMinimizeButton.title = minimized ? "Restore" : "Minimize";
+}
+
+function restoreTranslateByPointsWindow() {
+  translateByPointsWindow.classList.remove("is-maximized");
+  if (translateByPointsWindowState.restoreBounds) {
+    const { left, top, width } = translateByPointsWindowState.restoreBounds;
+    translateByPointsWindow.style.left = `${left}px`;
+    translateByPointsWindow.style.top = `${top}px`;
+    translateByPointsWindow.style.width = `${width}px`;
+  }
+  translateByPointsMaximizeButton.setAttribute(
+    "aria-label",
+    "Maximize Translate By Points",
+  );
+  translateByPointsMaximizeButton.title = "Maximize";
+  translateByPointsMaximizeIcon.textContent = "□";
+}
+
+function toggleTranslateByPointsWindowMaximized() {
+  setTranslateByPointsWindowMinimized(false);
+  if (translateByPointsWindow.classList.contains("is-maximized")) {
+    restoreTranslateByPointsWindow();
+    return;
+  }
+  const bounds = translateByPointsWindow.getBoundingClientRect();
+  translateByPointsWindowState.restoreBounds = {
+    left: bounds.left,
+    top: bounds.top,
+    width: bounds.width,
+  };
+  translateByPointsWindow.classList.add("is-maximized");
+  translateByPointsMaximizeButton.setAttribute(
+    "aria-label",
+    "Restore Translate By Points",
+  );
+  translateByPointsMaximizeButton.title = "Restore";
+  translateByPointsMaximizeIcon.textContent = "❐";
+}
+
+function closeTranslateByPointsWindow(statusMessage) {
+  if (translateByPointsWindow.classList.contains("is-maximized")) {
+    restoreTranslateByPointsWindow();
+  }
+  setTranslateByPointsWindowMinimized(false);
+  translateByPointsWindow.hidden = true;
+  translateByPointsState.active = false;
+  translateByPointsState.entityIds = [];
+  translateByPointsState.firstPointId = null;
+  translateByPointsState.secondPointId = null;
+  cadCanvas.classList.remove("translate-by-points");
+  if (selectionState.selectedEntityIds.size > 0 && isCurrentLayerEditable()) {
+    selectionState.mode = "single";
+    cadCanvas.classList.add("select-single");
+  }
+  renderEntities();
+  if (statusMessage) commandStatus.textContent = statusMessage;
+}
+
+function getTranslateByPointsEntities() {
+  return translateByPointsState.entityIds
+    .map((entityId) => getEntityById(entityId))
+    .filter(
+      (entity) =>
+        entity &&
+        isEntityOnCurrentLayer(entity) &&
+        (entity.type !== "point" || !entity.isConstruction),
+    );
+}
+
+function describeTranslateReferencePoint(point) {
+  return point
+    ? `Point ${point.id}: X${formatCoordinate(point.x)} Y${formatCoordinate(point.y)}`
+    : "Not selected";
+}
+
+function getTranslateByPointsVector() {
+  const firstPoint = getPointById(translateByPointsState.firstPointId);
+  const secondPoint = getPointById(translateByPointsState.secondPointId);
+  if (!firstPoint || !secondPoint) return null;
+  return {
+    firstPoint,
+    secondPoint,
+    deltaX: secondPoint.x - firstPoint.x,
+    deltaY: secondPoint.y - firstPoint.y,
+  };
+}
+
+function updateTranslateByPointsReadout() {
+  const firstPoint = getPointById(translateByPointsState.firstPointId);
+  const secondPoint = getPointById(translateByPointsState.secondPointId);
+  translateByPointsFirstReadout.textContent = firstPoint
+    ? describeTranslateReferencePoint(firstPoint)
+    : "Click a point";
+  translateByPointsSecondReadout.textContent = secondPoint
+    ? describeTranslateReferencePoint(secondPoint)
+    : "Not selected";
+  const vector = getTranslateByPointsVector();
+  translateByPointsVectorReadout.textContent = vector
+    ? `X${formatLengthResult(vector.deltaX)} Y${formatLengthResult(vector.deltaY)}`
+    : "X— Y—";
+  translateByPointsApplyButton.disabled = vector === null;
+}
+
+function activateTranslateByPoints() {
+  dismissModifyMenu();
+  const restrictionMessage = getCurrentLayerRestrictionMessage(
+    "Translate - By Points",
+  );
+  if (restrictionMessage) {
+    commandStatus.textContent = restrictionMessage;
+    return;
+  }
+
+  const selectedEntities = getSelectedTranslateEntities();
+  if (!selectedEntities.length) {
+    commandStatus.textContent =
+      "Translate - By Points: Select one or more entities first.";
+    return;
+  }
+  if (selectedEntities.some((entity) => !isEntityTranslatable(entity))) {
+    commandStatus.textContent =
+      "Translate - By Points: The selection contains unusable geometry.";
+    return;
+  }
+
+  deactivatePointSketch();
+  deactivateLineSketch();
+  deactivateLineAngle();
+  deactivateLineTangent();
+  deactivateJoin();
+  deactivateIntersectingPoint();
+  deactivateThreeEntityCircle();
+  deactivateTrimExtend();
+  deactivatePointOnEntity();
+  deactivatePointEnd();
+  deactivateFillet();
+  deactivateRotate();
+  deactivateDimension();
+  deactivateWindowZoom();
+  if (!circleRadiusWindow.hidden) closeCircleRadiusWindow(null);
+  if (!hexagonWindow.hidden) closeHexagonWindow(null);
+  if (!rectangleWindow.hidden) closeRectangleWindow(null);
+  if (!boltHoleCircleWindow.hidden) closeBoltHoleCircleWindow(null);
+  if (!offsetWindow.hidden) closeOffsetWindow(null);
+  if (!pointCoordinatesWindow.hidden) closePointCoordinatesWindow(null);
+  if (!lineCoordinatesWindow.hidden) closeLineCoordinatesWindow(null);
+  if (!pointIncrementalWindow.hidden) closePointIncrementalWindow(null);
+  if (!translateWindow.hidden) closeTranslateWindow(null);
+
+  translateByPointsState.active = true;
+  translateByPointsState.entityIds = selectedEntities.map(
+    (entity) => entity.id,
+  );
+  translateByPointsState.firstPointId = null;
+  translateByPointsState.secondPointId = null;
+  selectionState.mode = null;
+  selectionState.hoveredEntityId = null;
+  selectionState.pickCycle = null;
+  cadCanvas.classList.remove("select-single");
+  cadCanvas.classList.add("translate-by-points");
+  translateByPointsSelectionReadout.textContent =
+    `${selectedEntities.length} selected ` +
+    `${selectedEntities.length === 1 ? "entity" : "entities"}`;
+  translateByPointsCopyInput.checked = false;
+  translateByPointsToolMessage.textContent =
+    "Click the first reference point on the drawing.";
+  updateTranslateByPointsReadout();
+  translateByPointsWindow.hidden = false;
+  setTranslateByPointsWindowMinimized(false);
+  if (!translateByPointsWindowState.hasPosition) {
+    positionTranslateByPointsWindowInitially();
+  }
+  renderEntities();
+  commandStatus.textContent =
+    "Translate - By Points: Click the first reference point.";
+}
+
+function handleTranslateByPointsClick(event) {
+  const pointElement = event.target.closest(".point-entity");
+  if (!pointElement) {
+    commandStatus.textContent =
+      translateByPointsState.firstPointId === null
+        ? "Translate - By Points: Click the first reference point."
+        : translateByPointsState.secondPointId === null
+          ? "Translate - By Points: Click the second reference point."
+          : "Translate - By Points: Choose Translate, or click a point to restart the vector.";
+    return;
+  }
+  const point = getPointById(Number(pointElement.dataset.entityId));
+  if (
+    !point ||
+    point.isConstruction ||
+    !isEntityOnCurrentLayer(point) ||
+    !isEntityLayerVisible(point)
+  ) {
+    commandStatus.textContent =
+      "Translate - By Points: Select a visible point on the current layer.";
+    return;
+  }
+
+  if (
+    translateByPointsState.firstPointId === null ||
+    translateByPointsState.secondPointId !== null
+  ) {
+    translateByPointsState.firstPointId = point.id;
+    translateByPointsState.secondPointId = null;
+    translateByPointsToolMessage.textContent =
+      "Click the second reference point on the drawing.";
+    commandStatus.textContent = `Translate - By Points: Point ${point.id} is the first reference; click the second point.`;
+  } else {
+    translateByPointsState.secondPointId = point.id;
+    const vector = getTranslateByPointsVector();
+    const vectorDescription =
+      `X${formatLengthResult(vector.deltaX)} ` +
+      `Y${formatLengthResult(vector.deltaY)}`;
+    translateByPointsToolMessage.textContent = `Vector ${vectorDescription}. Choose Translate, or click another point to restart.`;
+    commandStatus.textContent = `Translate - By Points: Vector ${vectorDescription} is ready.`;
+  }
+  updateTranslateByPointsReadout();
+  renderEntities();
+}
+
+function applyTranslateByPoints() {
+  const restrictionMessage = getCurrentLayerRestrictionMessage(
+    "Translate - By Points",
+  );
+  if (restrictionMessage) {
+    closeTranslateByPointsWindow(restrictionMessage);
+    return null;
+  }
+  const selectedEntities = getTranslateByPointsEntities();
+  if (
+    selectedEntities.length !== translateByPointsState.entityIds.length ||
+    selectedEntities.some((entity) => !isEntityTranslatable(entity))
+  ) {
+    closeTranslateByPointsWindow(
+      "Translate - By Points canceled: the selected geometry is no longer available.",
+    );
+    return null;
+  }
+  const vector = getTranslateByPointsVector();
+  if (!vector) {
+    translateByPointsToolMessage.textContent =
+      "Select both reference points before translating.";
+    commandStatus.textContent =
+      "Translate - By Points: Select the first and second reference points.";
+    return null;
+  }
+  const isZeroTranslation =
+    Math.abs(vector.deltaX) <= GEOMETRY_EPSILON &&
+    Math.abs(vector.deltaY) <= GEOMETRY_EPSILON;
+  if (isZeroTranslation && !translateByPointsCopyInput.checked) {
+    translateByPointsToolMessage.textContent =
+      "Choose two different point locations, or enable Copy.";
+    commandStatus.textContent =
+      "Translate - By Points: The selected points define no movement.";
+    return null;
+  }
+
+  const entityWord = selectedEntities.length === 1 ? "entity" : "entities";
+  const vectorDescription =
+    `X${formatLengthResult(vector.deltaX)} ` +
+    `Y${formatLengthResult(vector.deltaY)}`;
+  const copySelection = translateByPointsCopyInput.checked;
+  const translationResult = applyTranslationToSelection(
+    selectedEntities,
+    vector.deltaX,
+    vector.deltaY,
+    copySelection,
+    `${copySelection ? "Translate and copy" : "Translate"} ` +
+      `${selectedEntities.length} ${entityWord} by points ${vectorDescription}`,
+  );
+  closeTranslateByPointsWindow(
+    `${copySelection ? "Translated and copied" : "Translated"} ` +
+      `${selectedEntities.length} selected ${entityWord} by ${vectorDescription}.`,
+  );
+  return {
+    ...translationResult,
+    deltaX: vector.deltaX,
+    deltaY: vector.deltaY,
+  };
+}
+
+function positionPointIncrementalWindowInitially() {
+  const windowBounds = pointIncrementalWindow.getBoundingClientRect();
+  const left = Math.max(8, window.innerWidth - windowBounds.width - 24);
+  const top = Math.min(
+    112,
+    Math.max(8, window.innerHeight - windowBounds.height - 36),
+  );
+  pointIncrementalWindow.style.left = `${left}px`;
+  pointIncrementalWindow.style.top = `${top}px`;
+  pointIncrementalWindowState.hasPosition = true;
+}
+
+function setPointIncrementalWindowMinimized(minimized) {
+  pointIncrementalWindow.classList.toggle("is-minimized", minimized);
+  pointIncrementalMinimizeButton.setAttribute(
+    "aria-label",
+    minimized ? "Restore Point Incremental" : "Minimize Point Incremental",
+  );
+  pointIncrementalMinimizeButton.title = minimized ? "Restore" : "Minimize";
+}
+
+function restorePointIncrementalWindow() {
+  pointIncrementalWindow.classList.remove("is-maximized");
+  if (pointIncrementalWindowState.restoreBounds) {
+    const { left, top, width } = pointIncrementalWindowState.restoreBounds;
+    pointIncrementalWindow.style.left = `${left}px`;
+    pointIncrementalWindow.style.top = `${top}px`;
+    pointIncrementalWindow.style.width = `${width}px`;
+  }
+  pointIncrementalMaximizeButton.setAttribute(
+    "aria-label",
+    "Maximize Point Incremental",
+  );
+  pointIncrementalMaximizeButton.title = "Maximize";
+  pointIncrementalMaximizeIcon.textContent = "□";
+}
+
+function togglePointIncrementalWindowMaximized() {
+  setPointIncrementalWindowMinimized(false);
+  if (pointIncrementalWindow.classList.contains("is-maximized")) {
+    restorePointIncrementalWindow();
+    return;
+  }
+  const bounds = pointIncrementalWindow.getBoundingClientRect();
+  pointIncrementalWindowState.restoreBounds = {
+    left: bounds.left,
+    top: bounds.top,
+    width: bounds.width,
+  };
+  pointIncrementalWindow.classList.add("is-maximized");
+  pointIncrementalMaximizeButton.setAttribute(
+    "aria-label",
+    "Restore Point Incremental",
+  );
+  pointIncrementalMaximizeButton.title = "Restore";
+  pointIncrementalMaximizeIcon.textContent = "❐";
+}
+
+function closePointIncrementalWindow(statusMessage) {
+  if (pointIncrementalWindow.classList.contains("is-maximized")) {
+    restorePointIncrementalWindow();
+  }
+  setPointIncrementalWindowMinimized(false);
+  pointIncrementalWindow.hidden = true;
+  if (selectionState.selectedEntityIds.size > 0 && isCurrentLayerEditable()) {
+    selectionState.mode = "single";
+    cadCanvas.classList.add("select-single");
+  }
+  renderEntities();
+  if (statusMessage) commandStatus.textContent = statusMessage;
+}
+
+function getSelectedIncrementalPoint() {
+  const selectedEntities = documentModel.entities.filter(
+    (entity) =>
+      selectionState.selectedEntityIds.has(entity.id) &&
+      isEntityOnCurrentLayer(entity) &&
+      (entity.type !== "point" || !entity.isConstruction),
+  );
+  return selectedEntities.length === 1 && selectedEntities[0].type === "point"
+    ? selectedEntities[0]
+    : null;
+}
+
+function activatePointIncremental() {
+  dismissDrawMenu();
+  const restrictionMessage = getCurrentLayerRestrictionMessage(
+    "Point - Incremental",
+  );
+  if (restrictionMessage) {
+    commandStatus.textContent = restrictionMessage;
+    return;
+  }
+
+  const selectedPoint = getSelectedIncrementalPoint();
+  if (!selectedPoint) {
+    commandStatus.textContent =
+      "Point - Incremental: Select exactly one point first.";
+    return;
+  }
+
+  deactivatePointSketch();
+  deactivateLineSketch();
+  deactivateLineAngle();
+  deactivateLineTangent();
+  deactivateJoin();
+  deactivateIntersectingPoint();
+  deactivateThreeEntityCircle();
+  deactivateTrimExtend();
+  deactivatePointOnEntity();
+  deactivatePointEnd();
+  deactivateFillet();
+  deactivateRotate();
+  deactivateDimension();
+  deactivateWindowZoom();
+  if (!circleRadiusWindow.hidden) closeCircleRadiusWindow(null);
+  if (!hexagonWindow.hidden) closeHexagonWindow(null);
+  if (!rectangleWindow.hidden) closeRectangleWindow(null);
+  if (!boltHoleCircleWindow.hidden) closeBoltHoleCircleWindow(null);
+  if (!offsetWindow.hidden) closeOffsetWindow(null);
+  if (!pointCoordinatesWindow.hidden) closePointCoordinatesWindow(null);
+  if (!lineCoordinatesWindow.hidden) closeLineCoordinatesWindow(null);
+  if (!translateWindow.hidden) closeTranslateWindow(null);
+
+  selectionState.mode = null;
+  cadCanvas.classList.remove("select-single");
+  pointIncrementalSelectionReadout.textContent =
+    `Point ${selectedPoint.id}: X${formatCoordinate(selectedPoint.x)} ` +
+    `Y${formatCoordinate(selectedPoint.y)}`;
+  pointIncrementalXInput.value = "0";
+  pointIncrementalYInput.value = "0";
+  pointIncrementalXInput.setCustomValidity("");
+  pointIncrementalYInput.setCustomValidity("");
+  pointIncrementalCopyInput.checked = false;
+  pointIncrementalToolMessage.textContent = "Enter the X and Y increments.";
+  pointIncrementalWindow.hidden = false;
+  setPointIncrementalWindowMinimized(false);
+  if (!pointIncrementalWindowState.hasPosition) {
+    positionPointIncrementalWindowInitially();
+  }
+  renderEntities();
+  pointIncrementalXInput.focus();
+  pointIncrementalXInput.select();
+  commandStatus.textContent = `Point - Incremental: Point ${selectedPoint.id} selected.`;
+}
+
+function applyPointIncremental() {
+  const deltaX = resolveArithmeticInput(pointIncrementalXInput, {
+    messageElement: pointIncrementalToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for X.",
+    successMessage: "Enter the X and Y increments.",
+  });
+  if (deltaX === null) {
+    commandStatus.textContent =
+      "Point - Incremental: Enter a valid X increment.";
+    pointIncrementalXInput.focus();
+    pointIncrementalXInput.select();
+    return null;
+  }
+  const deltaY = resolveArithmeticInput(pointIncrementalYInput, {
+    messageElement: pointIncrementalToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for Y.",
+    successMessage: "Enter the X and Y increments.",
+  });
+  if (deltaY === null) {
+    commandStatus.textContent =
+      "Point - Incremental: Enter a valid Y increment.";
+    pointIncrementalYInput.focus();
+    pointIncrementalYInput.select();
+    return null;
+  }
+  if (!pointIncrementalForm.reportValidity()) return null;
+
+  const restrictionMessage = getCurrentLayerRestrictionMessage(
+    "Point - Incremental",
+  );
+  if (restrictionMessage) {
+    closePointIncrementalWindow(restrictionMessage);
+    return null;
+  }
+  const selectedPoint = getSelectedIncrementalPoint();
+  if (!selectedPoint) {
+    closePointIncrementalWindow(
+      "Point - Incremental canceled: the selected point is no longer available.",
+    );
+    return null;
+  }
+
+  const isZeroTranslation =
+    Math.abs(deltaX) <= GEOMETRY_EPSILON &&
+    Math.abs(deltaY) <= GEOMETRY_EPSILON;
+  if (isZeroTranslation && !pointIncrementalCopyInput.checked) {
+    pointIncrementalToolMessage.textContent =
+      "Enter a nonzero X or Y increment to move the point.";
+    commandStatus.textContent = "Point - Incremental: No point changed.";
+    return null;
+  }
+
+  const distanceDescription = `X${formatLengthResult(deltaX)} Y${formatLengthResult(deltaY)}`;
+  const sourcePointId = selectedPoint.id;
+  if (pointIncrementalCopyInput.checked) {
+    recordDocumentChange(
+      `Incremental copy point ${sourcePointId} ${distanceDescription}`,
+    );
+    const [copiedPointId] = addTranslatedSelectionCopies(
+      [selectedPoint],
+      deltaX,
+      deltaY,
+    );
+    const copiedPoint = getPointById(copiedPointId);
+    selectionState.selectedEntityId = copiedPointId;
+    selectionState.hoveredEntityId = null;
+    selectionState.pickCycle = null;
+    closePointIncrementalWindow(
+      `Created point ${copiedPointId} from point ${sourcePointId} by ${distanceDescription}.`,
+    );
+    return copiedPoint;
+  }
+
+  recordDocumentChange(
+    `Incremental move point ${sourcePointId} ${distanceDescription}`,
+  );
+  detachEntityReferencesFromPoints(
+    new Set([sourcePointId]),
+    new Set([sourcePointId]),
+  );
+  const translatedPoint = translateWorldPoint(selectedPoint, deltaX, deltaY);
+  selectedPoint.x = translatedPoint.x;
+  selectedPoint.y = translatedPoint.y;
+  pruneUnusedConstructionPoints();
+  selectionState.hoveredEntityId = null;
+  selectionState.pickCycle = null;
+  closePointIncrementalWindow(
+    `Translated point ${sourcePointId} by ${distanceDescription}.`,
+  );
+  return selectedPoint;
 }
 
 function dismissDimensionMenu() {
@@ -8290,7 +13998,7 @@ function dismissDimensionMenu() {
 }
 
 function resetDimensionPickState() {
-  dimensionState.firstPointId = null;
+  dimensionState.firstEntityId = null;
   dimensionState.firstLineId = null;
   dimensionState.firstPickWorld = null;
 }
@@ -8329,23 +14037,26 @@ function activateDimension(type) {
   if (!pointCoordinatesWindow.hidden) closePointCoordinatesWindow(null);
   if (!lineCoordinatesWindow.hidden) closeLineCoordinatesWindow(null);
 
+  const measurableEntityCount = documentModel.entities.filter(
+    (entity) =>
+      ["point", "line", "circle", "arc"].includes(entity.type) &&
+      (entity.type !== "point" || !entity.isConstruction) &&
+      isEntityOnCurrentLayer(entity) &&
+      isEntityLayerVisible(entity),
+  ).length;
   const lineCount = documentModel.entities.filter(
     (entity) => entity.type === "line",
-  ).length;
-  const visiblePointCount = documentModel.entities.filter(
-    (entity) => entity.type === "point" && !entity.isConstruction,
   ).length;
   const radialEntityCount = documentModel.entities.filter(
     (entity) => entity.type === "circle" || entity.type === "arc",
   ).length;
-  if (type === "linear" && lineCount === 0 && visiblePointCount < 2) {
+  if (type === "linear" && measurableEntityCount < 2) {
     commandStatus.textContent =
-      "Dimension - Linear needs a line or at least two visible points.";
+      "Dimension - Linear needs at least two entities on the current layer.";
     return;
   }
   if ((type === "diameter" || type === "radius") && radialEntityCount === 0) {
-    commandStatus.textContent =
-      `Dimension - ${type === "diameter" ? "Diameter" : "Radius"} needs a circle or arc.`;
+    commandStatus.textContent = `Dimension - ${type === "diameter" ? "Diameter" : "Radius"} needs a circle or arc.`;
     return;
   }
   if (type === "angle" && lineCount < 2) {
@@ -8370,86 +14081,99 @@ function activateDimension(type) {
   renderEntities();
 
   if (type === "linear") {
-    commandStatus.textContent =
-      "Dimension - Linear: Select a line, or select the first of two points.";
+    commandStatus.textContent = "Dimension - Linear: Select the first entity.";
   } else if (type === "angle") {
-    commandStatus.textContent = "Dimension - Angle: Select the first line near the desired ray.";
+    commandStatus.textContent =
+      "Dimension - Angle: Select the first line near the desired ray.";
   } else {
     const name = type === "diameter" ? "Diameter" : "Radius";
-    commandStatus.textContent =
-      `Dimension - ${name}: Select a circle or arc where the leader should appear.`;
+    commandStatus.textContent = `Dimension - ${name}: Select a circle or arc where the leader should appear.`;
   }
 }
 
 function getDimensionCandidate(event, allowedTypes) {
   const worldPoint = screenToWorld(event);
-  return getSelectionHitCandidates(worldPoint, event.target).find(({ entity }) =>
-    allowedTypes.includes(entity.type),
-  )?.entity ?? null;
+  return (
+    getSelectionHitCandidates(worldPoint, event.target).find(({ entity }) =>
+      allowedTypes.includes(entity.type),
+    )?.entity ?? null
+  );
 }
 
 function handleLinearDimensionClick(event) {
-  const candidate = getDimensionCandidate(event, ["point", "line"]);
+  const candidate = getDimensionCandidate(event, [
+    "point",
+    "line",
+    "circle",
+    "arc",
+  ]);
   if (!candidate) {
     commandStatus.textContent =
-      dimensionState.firstPointId === null
-        ? "Dimension - Linear: Select a line, or select the first point."
-        : "Dimension - Linear: Select the second point.";
+      dimensionState.firstEntityId === null
+        ? "Dimension - Linear: Select the first entity."
+        : "Dimension - Linear: Select the second entity.";
+    return;
+  }
+  const pickPoint = screenToWorld(event);
+  if (dimensionState.firstEntityId === null) {
+    dimensionState.firstEntityId = candidate.id;
+    dimensionState.firstPickWorld = pickPoint;
+    renderEntities();
+    commandStatus.textContent = `Dimension - Linear: ${candidate.type[0].toUpperCase()}${candidate.type.slice(1)} ${candidate.id} selected; select the second entity.`;
+    return;
+  }
+  if (candidate.id === dimensionState.firstEntityId) {
+    commandStatus.textContent =
+      "Dimension - Linear: Select a different second entity.";
     return;
   }
 
-  if (candidate.type === "line") {
-    const endpoints = getLineEndpointPair(candidate);
-    if (!endpoints) {
-      commandStatus.textContent = "Dimension - Linear: That line has unusable endpoints.";
-      return;
-    }
-    resetDimensionPickState();
-    const dimension = addLinearDimension(
-      endpoints.startPoint,
-      endpoints.endPoint,
-    );
-    commandStatus.textContent = dimension
-      ? `Created linear dimension ${dimension.id}: ${formatCoordinate(dimension.value)}. Linear dimension remains active.`
-      : "Dimension - Linear: That line has no measurable length.";
-    return;
-  }
-
-  if (dimensionState.firstPointId === null) {
-    dimensionState.firstPointId = candidate.id;
+  const firstEntity = getEntityById(dimensionState.firstEntityId);
+  const firstPick = dimensionState.firstPickWorld;
+  resetDimensionPickState();
+  if (!firstEntity || !firstPick) {
     renderEntities();
     commandStatus.textContent =
-      `Dimension - Linear: Point ${candidate.id} selected; select the second point.`;
+      "Dimension - Linear: The first entity is no longer available; select it again.";
     return;
   }
-  if (candidate.id === dimensionState.firstPointId) {
-    commandStatus.textContent = "Dimension - Linear: Select a different second point.";
-    return;
-  }
-
-  const firstPoint = getPointById(dimensionState.firstPointId);
-  resetDimensionPickState();
-  if (!firstPoint) {
+  const measurement = getLinearDimensionBetweenEntities(
+    firstEntity,
+    candidate,
+    firstPick,
+    pickPoint,
+  );
+  if (!measurement) {
     renderEntities();
-    commandStatus.textContent = "Dimension - Linear: The first point is no longer available.";
+    commandStatus.textContent =
+      "Dimension - Linear: Those entities do not have usable geometry; select the first entity again.";
     return;
   }
-  const dimension = addLinearDimension(firstPoint, candidate);
+  if (measurement.distanceSquared <= GEOMETRY_EPSILON ** 2) {
+    renderEntities();
+    commandStatus.textContent =
+      "Dimension - Linear: The selected entities touch or intersect, so their distance is zero; select the first entity again.";
+    return;
+  }
+  const dimension = addLinearDimension(
+    measurement.firstPoint,
+    measurement.secondPoint,
+  );
   commandStatus.textContent = dimension
-    ? `Created linear dimension ${dimension.id}: ${formatCoordinate(dimension.value)}. Linear dimension remains active.`
-    : "Dimension - Linear: The selected points occupy the same location.";
+    ? `Created linear dimension ${dimension.id}: ${formatCoordinate(dimension.value)}. Linear dimension remains active; select the first entity.`
+    : "Dimension - Linear: The selected entities could not be measured; select the first entity again.";
 }
 
 function handleRadialDimensionClick(event, dimensionType) {
   const candidate = getDimensionCandidate(event, ["circle", "arc"]);
   if (!candidate) {
-    commandStatus.textContent =
-      `Dimension - ${dimensionType === "diameter" ? "Diameter" : "Radius"}: Select a circle or arc.`;
+    commandStatus.textContent = `Dimension - ${dimensionType === "diameter" ? "Diameter" : "Radius"}: Select a circle or arc.`;
     return;
   }
   const centerPoint = getPointById(candidate.centerPointId);
   if (!centerPoint) {
-    commandStatus.textContent = "Dimension: The selected entity has no usable center.";
+    commandStatus.textContent =
+      "Dimension: The selected entity has no usable center.";
     return;
   }
   const clickPoint = screenToWorld(event);
@@ -8484,12 +14208,12 @@ function handleAngleDimensionClick(event) {
     dimensionState.firstLineId = candidate.id;
     dimensionState.firstPickWorld = pickPoint;
     renderEntities();
-    commandStatus.textContent =
-      `Dimension - Angle: Line ${candidate.id} selected; select the second line near the desired ray.`;
+    commandStatus.textContent = `Dimension - Angle: Line ${candidate.id} selected; select the second line near the desired ray.`;
     return;
   }
   if (candidate.id === dimensionState.firstLineId) {
-    commandStatus.textContent = "Dimension - Angle: Select a different second line.";
+    commandStatus.textContent =
+      "Dimension - Angle: Select a different second line.";
     return;
   }
 
@@ -8498,7 +14222,8 @@ function handleAngleDimensionClick(event) {
   resetDimensionPickState();
   if (!firstLine || !firstPick) {
     renderEntities();
-    commandStatus.textContent = "Dimension - Angle: The first line is no longer available.";
+    commandStatus.textContent =
+      "Dimension - Angle: The first line is no longer available.";
     return;
   }
   const result = addAngleDimension(firstLine, candidate, firstPick, pickPoint);
@@ -8511,7 +14236,7 @@ function handleAngleDimensionClick(event) {
     return;
   }
   commandStatus.textContent =
-    `Created angle dimension ${result.dimension.id}: ${formatCoordinate(result.dimension.valueDegrees)}°. ` +
+    `Created angle dimension ${result.dimension.id}: ${formatDecimal(result.dimension.valueDegrees)}°. ` +
     "Angle dimension remains active; select the first line.";
 }
 
@@ -8526,6 +14251,169 @@ function handleDimensionClick(event) {
   } else if (dimensionState.activeType === "angle") {
     handleAngleDimensionClick(event);
   }
+}
+
+function deactivatePointEnd(statusMessage = null) {
+  const wasActive =
+    pointEndState.active ||
+    cadCanvas.classList.contains("point-end") ||
+    cadCanvas.classList.contains("point-end-source-pick");
+  pointEndState.active = false;
+  cadCanvas.classList.remove("point-end");
+  cadCanvas.classList.remove("point-end-source-pick");
+  if (wasActive) renderEntities();
+  if (statusMessage) commandStatus.textContent = statusMessage;
+}
+
+function activatePointEnd() {
+  dismissDrawMenu();
+  const restrictionMessage = getCurrentLayerRestrictionMessage("Point - End");
+  if (restrictionMessage) {
+    commandStatus.textContent = restrictionMessage;
+    return;
+  }
+
+  deactivateDimension();
+  deactivatePointSketch();
+  deactivateLineSketch();
+  deactivateLineAngle();
+  deactivateLineTangent();
+  deactivateJoin();
+  deactivateIntersectingPoint();
+  deactivateThreeEntityCircle();
+  deactivateTrimExtend();
+  deactivatePointOnEntity();
+  deactivateFillet();
+  deactivateRotate();
+  deactivateWindowZoom();
+  if (!circleRadiusWindow.hidden) closeCircleRadiusWindow(null);
+  if (!hexagonWindow.hidden) closeHexagonWindow(null);
+  if (!rectangleWindow.hidden) closeRectangleWindow(null);
+  if (!boltHoleCircleWindow.hidden) closeBoltHoleCircleWindow(null);
+  if (!offsetWindow.hidden) closeOffsetWindow(null);
+  if (!pointCoordinatesWindow.hidden) closePointCoordinatesWindow(null);
+  if (!lineCoordinatesWindow.hidden) closeLineCoordinatesWindow(null);
+  if (!translateWindow.hidden) closeTranslateWindow(null);
+
+  const eligibleEntityCount = documentModel.entities.filter(
+    (entity) =>
+      isEntityOnCurrentLayer(entity) &&
+      isEntityLayerVisible(entity) &&
+      (entity.type === "line" ||
+        entity.type === "circle" ||
+        entity.type === "arc"),
+  ).length;
+  if (!eligibleEntityCount) {
+    commandStatus.textContent =
+      "Point - End needs a line, circle, or arc on the current layer.";
+    return;
+  }
+
+  selectionState.mode = null;
+  selectionState.selectedEntityId = null;
+  selectionState.pickCycle = null;
+  cadCanvas.classList.remove("select-single");
+  pointEndState.active = true;
+  cadCanvas.classList.add("point-end");
+  cadCanvas.classList.add("point-end-source-pick");
+  renderEntities();
+  commandStatus.textContent = "Point - End: Select a line, arc, or circle.";
+}
+
+function resolvePointEndPlacement(sourceEntity, clickWorld) {
+  if (sourceEntity?.type === "line" || sourceEntity?.type === "arc") {
+    const startPoint = getPointById(sourceEntity.startPointId);
+    const endPoint = getPointById(sourceEntity.endPointId);
+    if (
+      !startPoint ||
+      !endPoint ||
+      !Number.isFinite(startPoint.x) ||
+      !Number.isFinite(startPoint.y) ||
+      !Number.isFinite(endPoint.x) ||
+      !Number.isFinite(endPoint.y) ||
+      !Number.isFinite(clickWorld?.x) ||
+      !Number.isFinite(clickWorld?.y)
+    ) {
+      return null;
+    }
+    const useStart =
+      squaredDistance(clickWorld, startPoint) <=
+      squaredDistance(clickWorld, endPoint);
+    const endpoint = useStart ? startPoint : endPoint;
+    return {
+      worldPoint: { x: endpoint.x, y: endpoint.y },
+      description:
+        `${useStart ? "start" : "end"} endpoint of ` +
+        `${sourceEntity.type} ${sourceEntity.id}`,
+    };
+  }
+
+  if (sourceEntity?.type === "circle") {
+    const centerPoint = getPointById(sourceEntity.centerPointId);
+    if (
+      !centerPoint ||
+      !Number.isFinite(centerPoint.x) ||
+      !Number.isFinite(centerPoint.y) ||
+      !Number.isFinite(sourceEntity.radius)
+    ) {
+      return null;
+    }
+    return {
+      worldPoint: {
+        x: centerPoint.x + sourceEntity.radius,
+        y: centerPoint.y,
+      },
+      description: `0° position of circle ${sourceEntity.id}`,
+    };
+  }
+
+  return null;
+}
+
+function placePointAtEntityEnd(sourceEntity, clickWorld) {
+  const placement = resolvePointEndPlacement(sourceEntity, clickWorld);
+  if (!placement) {
+    commandStatus.textContent =
+      "Point - End: The selected entity does not have usable geometry.";
+    return { point: null, created: false, placement: null };
+  }
+
+  const existingPoint = findExistingPointAt(placement.worldPoint);
+  if (existingPoint) {
+    commandStatus.textContent =
+      `Point ${existingPoint.id} already exists at the ${placement.description}. ` +
+      "Point - End remains active; select the next line, arc, or circle.";
+    return { point: existingPoint, created: false, placement };
+  }
+
+  const point = addPoint(placement.worldPoint.x, placement.worldPoint.y);
+  commandStatus.textContent =
+    `Created point ${point.id} at the ${placement.description}. ` +
+    "Point - End remains active; select the next line, arc, or circle.";
+  return { point, created: true, placement };
+}
+
+function handlePointEndClick(event) {
+  const sourceElement = event.target.closest(
+    ".line-entity, .circle-entity, .arc-entity",
+  );
+  if (!sourceElement) {
+    commandStatus.textContent = "Point - End: Select a line, arc, or circle.";
+    return;
+  }
+
+  const sourceEntity = getEntityById(Number(sourceElement.dataset.entityId));
+  if (
+    !sourceEntity ||
+    !isEntityOnCurrentLayer(sourceEntity) ||
+    !isEntityLayerVisible(sourceEntity)
+  ) {
+    commandStatus.textContent =
+      "Point - End: Select geometry on the current layer.";
+    return;
+  }
+
+  placePointAtEntityEnd(sourceEntity, screenToWorld(event));
 }
 
 function positionPointOnEntityWindowInitially() {
@@ -8665,8 +14553,7 @@ function activatePointOnEntity() {
   cadCanvas.classList.add("point-on-entity");
   cadCanvas.classList.add("point-on-entity-source-pick");
   renderEntities();
-  commandStatus.textContent =
-    "Point on Entity: Select a line, circle, or arc.";
+  commandStatus.textContent = "Point on Entity: Select a line, circle, or arc.";
 }
 
 function getLineDirectionChoices(line, lineElement) {
@@ -8726,9 +14613,7 @@ function showPointOnEntityWindow(sourceEntity) {
     pointOnEntityValueInput.min = "0";
     pointOnEntityValueInput.max = "100";
     const zeroChoice =
-      pointOnEntityState.directionChoices[
-        pointOnEntityState.zeroChoiceIndex
-      ];
+      pointOnEntityState.directionChoices[pointOnEntityState.zeroChoiceIndex];
     pointOnEntitySourceReadout.textContent = zeroChoice?.pointId
       ? `Line ${sourceEntity.id} — Point ${zeroChoice.pointId} is 0%`
       : `Line ${sourceEntity.id} — selected endpoint is 0%`;
@@ -8860,9 +14745,7 @@ function handlePointOnEntityClick(event) {
       return;
     }
 
-    selectPointOnEntityLineDirection(
-      distanceToStart < distanceToEnd ? 0 : 1,
-    );
+    selectPointOnEntityLineDirection(distanceToStart < distanceToEnd ? 0 : 1);
     return;
   }
 
@@ -8872,8 +14755,7 @@ function handlePointOnEntityClick(event) {
   renderEntities();
   showPointOnEntityWindow(sourceEntity);
   const entityName = sourceEntity.type === "circle" ? "Circle" : "Arc";
-  commandStatus.textContent =
-    `Point on Entity: ${entityName} ${sourceEntity.id} selected; enter degrees.`;
+  commandStatus.textContent = `Point on Entity: ${entityName} ${sourceEntity.id} selected; enter degrees.`;
 }
 
 function createPointOnEntity() {
@@ -8906,9 +14788,7 @@ function createPointOnEntity() {
       return;
     }
     const zeroChoice =
-      pointOnEntityState.directionChoices[
-        pointOnEntityState.zeroChoiceIndex
-      ];
+      pointOnEntityState.directionChoices[pointOnEntityState.zeroChoiceIndex];
     const oppositeChoice =
       pointOnEntityState.directionChoices[
         pointOnEntityState.zeroChoiceIndex === 0 ? 1 : 0
@@ -8924,8 +14804,7 @@ function createPointOnEntity() {
       y: zeroChoice.y + (oppositeChoice.y - zeroChoice.y) * fraction,
     };
     pointOnEntityState.linePercentage = value;
-    placementDescription =
-      `line ${sourceEntity.id} at ${formatCoordinate(value)}%`;
+    placementDescription = `line ${sourceEntity.id} at ${formatDecimal(value)}%`;
   } else if (sourceEntity.type === "circle" || sourceEntity.type === "arc") {
     const centerPoint = getPointById(sourceEntity.centerPointId);
     if (!centerPoint) {
@@ -8933,8 +14812,8 @@ function createPointOnEntity() {
         "The selected entity has no usable center point.";
       return;
     }
-    const normalizedDegrees = normalizeAngle((value * Math.PI) / 180) *
-      (180 / Math.PI);
+    const normalizedDegrees =
+      normalizeAngle((value * Math.PI) / 180) * (180 / Math.PI);
     const radians = (normalizedDegrees * Math.PI) / 180;
     const rawCosine = Math.cos(radians);
     const rawSine = Math.sin(radians);
@@ -8945,10 +14824,10 @@ function createPointOnEntity() {
       y: centerPoint.y + sourceEntity.radius * sine,
     };
     pointOnEntityState.angleDegrees = value;
-    placementDescription =
-      `${sourceEntity.type} ${sourceEntity.id} at ${formatCoordinate(normalizedDegrees)}°`;
+    placementDescription = `${sourceEntity.type} ${sourceEntity.id} at ${formatDecimal(normalizedDegrees)}°`;
   } else {
-    pointOnEntityToolMessage.textContent = "The selected entity is not supported.";
+    pointOnEntityToolMessage.textContent =
+      "The selected entity is not supported.";
     return;
   }
 
@@ -9103,16 +14982,15 @@ function createLineFromCoordinateInputs(keepDialogOpen) {
   if (squaredDistance(start, end) <= GEOMETRY_EPSILON ** 2) {
     lineCoordinatesToolMessage.textContent =
       "Start and end coordinates must define a line with a nonzero length.";
-    commandStatus.textContent = "Line - Coordinates: Start and end are identical.";
+    commandStatus.textContent =
+      "Line - Coordinates: Start and end are identical.";
     return;
   }
 
   const duplicateLine = findLineAtCoordinates(start, end);
   if (duplicateLine) {
-    lineCoordinatesToolMessage.textContent =
-      `Line ${duplicateLine.id} already exists at those coordinates.`;
-    commandStatus.textContent =
-      `Line - Coordinates: Line ${duplicateLine.id} already exists.`;
+    lineCoordinatesToolMessage.textContent = `Line ${duplicateLine.id} already exists at those coordinates.`;
+    commandStatus.textContent = `Line - Coordinates: Line ${duplicateLine.id} already exists.`;
     return;
   }
 
@@ -9129,6 +15007,557 @@ function createLineFromCoordinateInputs(keepDialogOpen) {
     return;
   }
   closeLineCoordinatesWindow(resultMessage);
+}
+
+function positionLineAngleWindowInitially() {
+  const windowBounds = lineAngleWindow.getBoundingClientRect();
+  const left = Math.max(8, window.innerWidth - windowBounds.width - 24);
+  const top = Math.min(
+    112,
+    Math.max(8, window.innerHeight - windowBounds.height - 36),
+  );
+  lineAngleWindow.style.left = `${left}px`;
+  lineAngleWindow.style.top = `${top}px`;
+  lineAngleWindowState.hasPosition = true;
+}
+
+function setLineAngleWindowMinimized(minimized) {
+  lineAngleWindow.classList.toggle("is-minimized", minimized);
+  lineAngleMinimizeButton.setAttribute(
+    "aria-label",
+    minimized ? "Restore Line Angle" : "Minimize Line Angle",
+  );
+  lineAngleMinimizeButton.title = minimized ? "Restore" : "Minimize";
+}
+
+function restoreLineAngleWindow() {
+  lineAngleWindow.classList.remove("is-maximized");
+  if (lineAngleWindowState.restoreBounds) {
+    const { left, top, width } = lineAngleWindowState.restoreBounds;
+    lineAngleWindow.style.left = `${left}px`;
+    lineAngleWindow.style.top = `${top}px`;
+    lineAngleWindow.style.width = `${width}px`;
+  }
+  lineAngleMaximizeButton.setAttribute("aria-label", "Maximize Line Angle");
+  lineAngleMaximizeButton.title = "Maximize";
+  lineAngleMaximizeIcon.textContent = "□";
+}
+
+function toggleLineAngleWindowMaximized() {
+  setLineAngleWindowMinimized(false);
+  if (lineAngleWindow.classList.contains("is-maximized")) {
+    restoreLineAngleWindow();
+    return;
+  }
+  const bounds = lineAngleWindow.getBoundingClientRect();
+  lineAngleWindowState.restoreBounds = {
+    left: bounds.left,
+    top: bounds.top,
+    width: bounds.width,
+  };
+  lineAngleWindow.classList.add("is-maximized");
+  lineAngleMaximizeButton.setAttribute("aria-label", "Restore Line Angle");
+  lineAngleMaximizeButton.title = "Restore";
+  lineAngleMaximizeIcon.textContent = "❐";
+}
+
+function resetLineAngleSource() {
+  lineAngleState.sourceEntityId = null;
+  lineAngleState.startPointId = null;
+  lineAngleState.lineBaseAngle = 0;
+  lineAngleSourceReadout.textContent = "Select an entity";
+  lineAngleRelativeOptions.disabled = true;
+  lineAngleRelativeAxisInput.checked = true;
+  lineAngleCreateButton.disabled = true;
+}
+
+function deactivateLineAngle(statusMessage) {
+  const wasActive = lineAngleState.active;
+  lineAngleState.active = false;
+  resetLineAngleSource();
+  cadCanvas.classList.remove("line-angle");
+  if (lineAngleWindow.classList.contains("is-maximized")) {
+    restoreLineAngleWindow();
+  }
+  setLineAngleWindowMinimized(false);
+  lineAngleWindow.hidden = true;
+  previewLayer.innerHTML = "";
+  if (wasActive) renderEntities();
+  if (statusMessage) commandStatus.textContent = statusMessage;
+}
+
+function activateLineAngle() {
+  dismissDrawMenu();
+  deactivatePointSketch();
+  deactivateLineSketch();
+  deactivateJoin();
+  deactivateIntersectingPoint();
+  deactivateThreeEntityCircle();
+  deactivateTrimExtend();
+  deactivatePointOnEntity();
+  deactivateFillet();
+  deactivateRotate();
+  deactivateDimension();
+  deactivateWindowZoom();
+  if (!circleRadiusWindow.hidden) closeCircleRadiusWindow(null);
+  if (!hexagonWindow.hidden) closeHexagonWindow(null);
+  if (!rectangleWindow.hidden) closeRectangleWindow(null);
+  if (!boltHoleCircleWindow.hidden) closeBoltHoleCircleWindow(null);
+  if (!offsetWindow.hidden) closeOffsetWindow(null);
+  if (!pointCoordinatesWindow.hidden) closePointCoordinatesWindow(null);
+  if (!lineCoordinatesWindow.hidden) closeLineCoordinatesWindow(null);
+  if (!translateWindow.hidden) closeTranslateWindow(null);
+
+  selectionState.mode = null;
+  selectionState.selectedEntityId = null;
+  selectionState.pickCycle = null;
+  cadCanvas.classList.remove("select-single");
+  lineAngleState.active = true;
+  resetLineAngleSource();
+  lineAngleDegreesInput.value = "0";
+  lineAngleLengthInput.value = "1.000";
+  lineAngleDegreesInput.setCustomValidity("");
+  lineAngleLengthInput.setCustomValidity("");
+  lineAngleToolMessage.textContent =
+    "Select a point, line, circle, or arc for the line start.";
+  cadCanvas.classList.add("line-angle");
+  lineAngleWindow.hidden = false;
+  setLineAngleWindowMinimized(false);
+  if (!lineAngleWindowState.hasPosition) positionLineAngleWindowInitially();
+  renderEntities();
+  lineAngleDegreesInput.focus();
+  lineAngleDegreesInput.select();
+  commandStatus.textContent =
+    "Line - Angle: Select a point, line, circle, or arc.";
+}
+
+function getLineAngleGeometry() {
+  const sourceEntity = getEntityById(lineAngleState.sourceEntityId);
+  const startPoint = getPointById(lineAngleState.startPointId);
+  const angleDegrees = getArithmeticInputValue(lineAngleDegreesInput);
+  const length = getArithmeticInputValue(lineAngleLengthInput);
+  if (
+    !sourceEntity ||
+    !startPoint ||
+    !Number.isFinite(angleDegrees) ||
+    !Number.isFinite(length) ||
+    length <= 0
+  ) {
+    return null;
+  }
+  const baseAngle =
+    sourceEntity.type === "line" && lineAngleRelativeLineInput.checked
+      ? lineAngleState.lineBaseAngle
+      : 0;
+  const finalAngle = baseAngle + (angleDegrees * Math.PI) / 180;
+  return {
+    start: { x: startPoint.x, y: startPoint.y },
+    end: {
+      x: startPoint.x + Math.cos(finalAngle) * length,
+      y: startPoint.y + Math.sin(finalAngle) * length,
+    },
+    angleDegrees,
+    length,
+  };
+}
+
+function updateLineAngleCreateState() {
+  lineAngleCreateButton.disabled = getLineAngleGeometry() === null;
+  renderToolPreview();
+}
+
+function describeLineAngleSource(entity, startPoint) {
+  const coordinates = `X${formatCoordinate(startPoint.x)} Y${formatCoordinate(startPoint.y)}`;
+  if (entity.type === "point") return `Point ${entity.id}: ${coordinates}`;
+  if (entity.type === "line") {
+    return `Line ${entity.id} endpoint: ${coordinates}`;
+  }
+  return `${entity.type === "circle" ? "Circle" : "Arc"} ${entity.id} center: ${coordinates}`;
+}
+
+function handleLineAngleClick(event) {
+  const clickWorld = screenToWorld(event);
+  const candidate = getSelectionHitCandidates(clickWorld, event.target).find(
+    ({ entity }) =>
+      entity.type === "point" ||
+      entity.type === "line" ||
+      entity.type === "circle" ||
+      entity.type === "arc",
+  );
+  if (!candidate) {
+    commandStatus.textContent =
+      "Line - Angle: Select a point, line, circle, or arc.";
+    return;
+  }
+
+  const entity = candidate.entity;
+  let startPoint = null;
+  if (entity.type === "point") {
+    startPoint = entity;
+  } else if (entity.type === "line") {
+    const endpoints = getLineEndpointPair(entity);
+    if (endpoints) {
+      startPoint =
+        squaredDistance(clickWorld, endpoints.startPoint) <=
+        squaredDistance(clickWorld, endpoints.endPoint)
+          ? endpoints.startPoint
+          : endpoints.endPoint;
+      lineAngleState.lineBaseAngle = Math.atan2(
+        endpoints.endPoint.y - endpoints.startPoint.y,
+        endpoints.endPoint.x - endpoints.startPoint.x,
+      );
+    }
+  } else {
+    startPoint = getPointById(entity.centerPointId);
+  }
+  if (!startPoint) {
+    commandStatus.textContent =
+      "Line - Angle: The selected entity has unusable geometry.";
+    return;
+  }
+
+  lineAngleState.sourceEntityId = entity.id;
+  lineAngleState.startPointId = startPoint.id;
+  lineAngleSourceReadout.textContent = describeLineAngleSource(
+    entity,
+    startPoint,
+  );
+  const usesLineReference = entity.type === "line";
+  lineAngleRelativeOptions.disabled = !usesLineReference;
+  if (usesLineReference) lineAngleRelativeLineInput.checked = true;
+  else lineAngleRelativeAxisInput.checked = true;
+  lineAngleToolMessage.textContent = usesLineReference
+    ? "Choose Line or Axis orientation, then enter the angle and length."
+    : "Enter the angle from the positive X axis and the line length.";
+  updateLineAngleCreateState();
+  renderEntities();
+  commandStatus.textContent = `Line - Angle: ${describeLineAngleSource(entity, startPoint)} selected.`;
+}
+
+function createLineFromAngleInputs() {
+  if (lineAngleState.sourceEntityId === null) {
+    lineAngleToolMessage.textContent =
+      "Select a point, line, circle, or arc for the line start.";
+    commandStatus.textContent = "Line - Angle: Select a start source first.";
+    return;
+  }
+  const angleDegrees = resolveArithmeticInput(lineAngleDegreesInput, {
+    messageElement: lineAngleToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for the angle.",
+    successMessage: "Enter the angle and length.",
+  });
+  const length = resolveArithmeticInput(lineAngleLengthInput, {
+    messageElement: lineAngleToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for the length.",
+    validationMessage: (value) =>
+      value > 0 ? null : "Length must be greater than zero.",
+    successMessage: "Enter the angle and length.",
+  });
+  if (!lineAngleForm.reportValidity()) return;
+  if (angleDegrees === null || length === null) return;
+
+  const geometry = getLineAngleGeometry();
+  if (!geometry) {
+    lineAngleToolMessage.textContent =
+      "The selected start source is no longer available.";
+    commandStatus.textContent = "Line - Angle: Select the start source again.";
+    resetLineAngleSource();
+    renderEntities();
+    return;
+  }
+  const duplicateLine = findLineAtCoordinates(geometry.start, geometry.end);
+  if (duplicateLine) {
+    lineAngleToolMessage.textContent = `Line ${duplicateLine.id} already exists at those coordinates.`;
+    commandStatus.textContent = `Line - Angle: Line ${duplicateLine.id} already exists.`;
+    return;
+  }
+
+  const sourceEntity = getEntityById(lineAngleState.sourceEntityId);
+  const referenceDescription =
+    sourceEntity?.type === "line" && lineAngleRelativeLineInput.checked
+      ? ` relative to line ${sourceEntity.id}`
+      : " relative to the axis";
+  const { line, startPoint, endPoint } = addAngleLine(
+    geometry.start,
+    geometry.end,
+  );
+  const resultMessage =
+    `Created line ${line.id} from X${formatCoordinate(startPoint.x)} ` +
+    `Y${formatCoordinate(startPoint.y)} to X${formatCoordinate(endPoint.x)} ` +
+    `Y${formatCoordinate(endPoint.y)} at ${formatArithmeticResult(angleDegrees)}°` +
+    `${referenceDescription}, length ${formatLengthResult(length)}.`;
+  resetLineAngleSource();
+  lineAngleToolMessage.textContent = `${resultMessage} Select the next start source.`;
+  renderEntities();
+  commandStatus.textContent = `${resultMessage} Line - Angle remains active.`;
+}
+
+function positionLineTangentWindowInitially() {
+  const windowBounds = lineTangentWindow.getBoundingClientRect();
+  const left = Math.max(8, window.innerWidth - windowBounds.width - 24);
+  const top = Math.min(
+    112,
+    Math.max(8, window.innerHeight - windowBounds.height - 36),
+  );
+  lineTangentWindow.style.left = `${left}px`;
+  lineTangentWindow.style.top = `${top}px`;
+  lineTangentWindowState.hasPosition = true;
+}
+
+function setLineTangentWindowMinimized(minimized) {
+  lineTangentWindow.classList.toggle("is-minimized", minimized);
+  lineTangentMinimizeButton.setAttribute(
+    "aria-label",
+    minimized ? "Restore Line Tangent" : "Minimize Line Tangent",
+  );
+  lineTangentMinimizeButton.title = minimized ? "Restore" : "Minimize";
+}
+
+function restoreLineTangentWindow() {
+  lineTangentWindow.classList.remove("is-maximized");
+  if (lineTangentWindowState.restoreBounds) {
+    const { left, top, width } = lineTangentWindowState.restoreBounds;
+    lineTangentWindow.style.left = `${left}px`;
+    lineTangentWindow.style.top = `${top}px`;
+    lineTangentWindow.style.width = `${width}px`;
+  }
+  lineTangentMaximizeButton.setAttribute("aria-label", "Maximize Line Tangent");
+  lineTangentMaximizeButton.title = "Maximize";
+  lineTangentMaximizeIcon.textContent = "□";
+}
+
+function toggleLineTangentWindowMaximized() {
+  setLineTangentWindowMinimized(false);
+  if (lineTangentWindow.classList.contains("is-maximized")) {
+    restoreLineTangentWindow();
+    return;
+  }
+  const bounds = lineTangentWindow.getBoundingClientRect();
+  lineTangentWindowState.restoreBounds = {
+    left: bounds.left,
+    top: bounds.top,
+    width: bounds.width,
+  };
+  lineTangentWindow.classList.add("is-maximized");
+  lineTangentMaximizeButton.setAttribute("aria-label", "Restore Line Tangent");
+  lineTangentMaximizeButton.title = "Restore";
+  lineTangentMaximizeIcon.textContent = "❐";
+}
+
+function resetLineTangentSource() {
+  lineTangentState.sourceEntityId = null;
+  lineTangentState.centerPointId = null;
+  lineTangentSourceReadout.textContent = "Select an entity";
+  lineTangentCreateButton.disabled = true;
+}
+
+function deactivateLineTangent(statusMessage) {
+  const wasActive = lineTangentState.active;
+  lineTangentState.active = false;
+  resetLineTangentSource();
+  cadCanvas.classList.remove("line-tangent");
+  if (lineTangentWindow.classList.contains("is-maximized")) {
+    restoreLineTangentWindow();
+  }
+  setLineTangentWindowMinimized(false);
+  lineTangentWindow.hidden = true;
+  previewLayer.innerHTML = "";
+  if (wasActive) renderEntities();
+  if (statusMessage) commandStatus.textContent = statusMessage;
+}
+
+function activateLineTangent() {
+  dismissDrawMenu();
+  deactivatePointSketch();
+  deactivateLineSketch();
+  deactivateLineAngle();
+  deactivateJoin();
+  deactivateIntersectingPoint();
+  deactivateThreeEntityCircle();
+  deactivateTrimExtend();
+  deactivatePointOnEntity();
+  deactivateFillet();
+  deactivateRotate();
+  deactivateDimension();
+  deactivateWindowZoom();
+  if (!circleRadiusWindow.hidden) closeCircleRadiusWindow(null);
+  if (!hexagonWindow.hidden) closeHexagonWindow(null);
+  if (!rectangleWindow.hidden) closeRectangleWindow(null);
+  if (!boltHoleCircleWindow.hidden) closeBoltHoleCircleWindow(null);
+  if (!offsetWindow.hidden) closeOffsetWindow(null);
+  if (!pointCoordinatesWindow.hidden) closePointCoordinatesWindow(null);
+  if (!lineCoordinatesWindow.hidden) closeLineCoordinatesWindow(null);
+  if (!translateWindow.hidden) closeTranslateWindow(null);
+
+  selectionState.mode = null;
+  selectionState.selectedEntityId = null;
+  selectionState.pickCycle = null;
+  cadCanvas.classList.remove("select-single");
+  lineTangentState.active = true;
+  resetLineTangentSource();
+  lineTangentAngleInput.value = "0";
+  lineTangentLengthInput.value = "1.000";
+  lineTangentAngleInput.setCustomValidity("");
+  lineTangentLengthInput.setCustomValidity("");
+  lineTangentToolMessage.textContent =
+    "Select a point, circle, or arc as the tangent source.";
+  cadCanvas.classList.add("line-tangent");
+  lineTangentWindow.hidden = false;
+  setLineTangentWindowMinimized(false);
+  if (!lineTangentWindowState.hasPosition) {
+    positionLineTangentWindowInitially();
+  }
+  renderEntities();
+  lineTangentAngleInput.focus();
+  lineTangentAngleInput.select();
+  commandStatus.textContent = "Line - Tangent: Select a point, circle, or arc.";
+}
+
+function getLineTangentGeometry() {
+  const sourceEntity = getEntityById(lineTangentState.sourceEntityId);
+  const centerPoint = getPointById(lineTangentState.centerPointId);
+  const angleDegrees = getArithmeticInputValue(lineTangentAngleInput);
+  const length = getArithmeticInputValue(lineTangentLengthInput);
+  if (
+    !sourceEntity ||
+    !centerPoint ||
+    !Number.isFinite(angleDegrees) ||
+    !Number.isFinite(length) ||
+    length <= 0
+  ) {
+    return null;
+  }
+  const radius = sourceEntity.type === "point" ? 0 : sourceEntity.radius;
+  if (!Number.isFinite(radius) || radius < 0) return null;
+  const radialAngle = (angleDegrees * Math.PI) / 180;
+  const tangentPoint = {
+    x: centerPoint.x + Math.cos(radialAngle) * radius,
+    y: centerPoint.y + Math.sin(radialAngle) * radius,
+  };
+  const tangentDirection = {
+    x: -Math.sin(radialAngle),
+    y: Math.cos(radialAngle),
+  };
+  const halfLength = length / 2;
+  return {
+    tangentPoint,
+    start: {
+      x: tangentPoint.x - tangentDirection.x * halfLength,
+      y: tangentPoint.y - tangentDirection.y * halfLength,
+    },
+    end: {
+      x: tangentPoint.x + tangentDirection.x * halfLength,
+      y: tangentPoint.y + tangentDirection.y * halfLength,
+    },
+    angleDegrees,
+    length,
+  };
+}
+
+function updateLineTangentCreateState() {
+  lineTangentCreateButton.disabled = getLineTangentGeometry() === null;
+  renderToolPreview();
+}
+
+function describeLineTangentSource(entity, centerPoint) {
+  const coordinates = `X${formatCoordinate(centerPoint.x)} Y${formatCoordinate(centerPoint.y)}`;
+  if (entity.type === "point") return `Point ${entity.id}: ${coordinates}`;
+  const label = entity.type === "circle" ? "Circle" : "Arc";
+  return `${label} ${entity.id}: center ${coordinates}, R${formatCoordinate(entity.radius)}`;
+}
+
+function handleLineTangentClick(event) {
+  const clickWorld = screenToWorld(event);
+  const candidate = getSelectionHitCandidates(clickWorld, event.target).find(
+    ({ entity }) =>
+      entity.type === "point" ||
+      entity.type === "circle" ||
+      entity.type === "arc",
+  );
+  if (!candidate) {
+    commandStatus.textContent =
+      "Line - Tangent: Select a point, circle, or arc.";
+    return;
+  }
+
+  const entity = candidate.entity;
+  const centerPoint =
+    entity.type === "point" ? entity : getPointById(entity.centerPointId);
+  if (!centerPoint) {
+    commandStatus.textContent =
+      "Line - Tangent: The selected entity has unusable geometry.";
+    return;
+  }
+  lineTangentState.sourceEntityId = entity.id;
+  lineTangentState.centerPointId = centerPoint.id;
+  lineTangentSourceReadout.textContent = describeLineTangentSource(
+    entity,
+    centerPoint,
+  );
+  lineTangentToolMessage.textContent =
+    entity.type === "arc"
+      ? "The arc is treated as its full hypothetical circle. Enter the angle and length."
+      : "Enter the tangent angle and line length.";
+  updateLineTangentCreateState();
+  renderEntities();
+  commandStatus.textContent = `Line - Tangent: ${describeLineTangentSource(entity, centerPoint)} selected.`;
+}
+
+function createLineFromTangentInputs() {
+  if (lineTangentState.sourceEntityId === null) {
+    lineTangentToolMessage.textContent =
+      "Select a point, circle, or arc as the tangent source.";
+    commandStatus.textContent =
+      "Line - Tangent: Select a tangent source first.";
+    return;
+  }
+  const angleDegrees = resolveArithmeticInput(lineTangentAngleInput, {
+    messageElement: lineTangentToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for the angle.",
+    successMessage: "Enter the tangent angle and line length.",
+  });
+  const length = resolveArithmeticInput(lineTangentLengthInput, {
+    messageElement: lineTangentToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for the length.",
+    validationMessage: (value) =>
+      value > 0 ? null : "Length must be greater than zero.",
+    successMessage: "Enter the tangent angle and line length.",
+  });
+  if (!lineTangentForm.reportValidity()) return;
+  if (angleDegrees === null || length === null) return;
+
+  const geometry = getLineTangentGeometry();
+  if (!geometry) {
+    lineTangentToolMessage.textContent =
+      "The selected tangent source is no longer available.";
+    commandStatus.textContent =
+      "Line - Tangent: Select the tangent source again.";
+    resetLineTangentSource();
+    renderEntities();
+    return;
+  }
+  const duplicateLine = findLineAtCoordinates(geometry.start, geometry.end);
+  if (duplicateLine) {
+    lineTangentToolMessage.textContent = `Line ${duplicateLine.id} already exists at those coordinates.`;
+    commandStatus.textContent = `Line - Tangent: Line ${duplicateLine.id} already exists.`;
+    return;
+  }
+
+  const { line, startPoint, endPoint } = addTangentLine(
+    geometry.start,
+    geometry.end,
+  );
+  const resultMessage =
+    `Created tangent line ${line.id}, length ${formatLengthResult(length)}, ` +
+    `centered at X${formatCoordinate(geometry.tangentPoint.x)} ` +
+    `Y${formatCoordinate(geometry.tangentPoint.y)} for ` +
+    `${formatArithmeticResult(angleDegrees)}°. Endpoints: ` +
+    `X${formatCoordinate(startPoint.x)} Y${formatCoordinate(startPoint.y)} and ` +
+    `X${formatCoordinate(endPoint.x)} Y${formatCoordinate(endPoint.y)}.`;
+  resetLineTangentSource();
+  lineTangentToolMessage.textContent = `${resultMessage} Select the next tangent source.`;
+  renderEntities();
+  commandStatus.textContent = `${resultMessage} Line - Tangent remains active.`;
 }
 
 function activatePointCoordinates() {
@@ -9161,7 +15590,10 @@ function activatePointCoordinates() {
 function positionPointWindowInitially() {
   const windowBounds = pointCoordinatesWindow.getBoundingClientRect();
   const left = Math.max(8, window.innerWidth - windowBounds.width - 24);
-  const top = Math.min(112, Math.max(8, window.innerHeight - windowBounds.height - 36));
+  const top = Math.min(
+    112,
+    Math.max(8, window.innerHeight - windowBounds.height - 36),
+  );
 
   pointCoordinatesWindow.style.left = `${left}px`;
   pointCoordinatesWindow.style.top = `${top}px`;
@@ -9276,6 +15708,16 @@ lineCoordinatesForm.addEventListener("submit", (event) => {
   createLineFromCoordinateInputs(false);
 });
 
+lineAngleForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  createLineFromAngleInputs();
+});
+
+lineTangentForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  createLineFromTangentInputs();
+});
+
 pointOnEntityForm.addEventListener("submit", (event) => {
   event.preventDefault();
   createPointOnEntity();
@@ -9305,6 +15747,15 @@ boltHoleCircleForm.addEventListener("submit", (event) => {
   createBoltHoleCircleFromInputs();
 });
 
+textForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  updateTextPlacementState();
+  if (textForm.reportValidity()) {
+    commandStatus.textContent =
+      "Text: Move the pointer onto the drawing and click to place the text.";
+  }
+});
+
 offsetForm.addEventListener("submit", (event) => {
   event.preventDefault();
 });
@@ -9318,7 +15769,56 @@ rotateForm.addEventListener("submit", (event) => {
   rotateSelectedEntity();
 });
 
+translateForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  translateSelectedEntities();
+});
+
+translateByPointsForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  applyTranslateByPoints();
+});
+
+pointIncrementalForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  applyPointIncremental();
+});
+
+boxForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  createBoxFromInputs();
+});
+
 const arithmeticInputConfigurations = [
+  ...[
+    [boxXInput, "X"],
+    [boxYInput, "Y"],
+    [boxZInput, "Z"],
+    [boxLengthInput, "length", true],
+    [boxWidthInput, "width", true],
+    [boxHeightInput, "height", true],
+  ].map(([input, label, positive = false]) => ({
+    input,
+    messageElement: boxToolMessage,
+    invalidMessage: `Enter a valid arithmetic expression for ${label}.`,
+    validationMessage: positive
+      ? (value) =>
+          value > GEOMETRY_EPSILON
+            ? null
+            : `${label[0].toUpperCase()}${label.slice(1)} must be greater than zero.`
+      : null,
+    successMessage: "Enter position, dimensions, and draft angle.",
+  })),
+  {
+    input: boxDraftAngleInput,
+    messageElement: boxToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for the draft angle.",
+    validationMessage: (value) =>
+      Math.abs(value) < 90
+        ? null
+        : "Draft angle must be greater than -90° and less than 90°.",
+    successMessage: "Enter position, dimensions, and draft angle.",
+  },
   {
     input: pointXInput,
     messageElement: toolMessage,
@@ -9356,6 +15856,34 @@ const arithmeticInputConfigurations = [
     successMessage: "Enter the start and end coordinates.",
   },
   {
+    input: lineAngleDegreesInput,
+    messageElement: lineAngleToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for the angle.",
+    successMessage: "Enter the angle and length.",
+  },
+  {
+    input: lineAngleLengthInput,
+    messageElement: lineAngleToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for the length.",
+    validationMessage: (value) =>
+      value > 0 ? null : "Length must be greater than zero.",
+    successMessage: "Enter the angle and length.",
+  },
+  {
+    input: lineTangentAngleInput,
+    messageElement: lineTangentToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for the angle.",
+    successMessage: "Enter the tangent angle and line length.",
+  },
+  {
+    input: lineTangentLengthInput,
+    messageElement: lineTangentToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for the length.",
+    validationMessage: (value) =>
+      value > 0 ? null : "Length must be greater than zero.",
+    successMessage: "Enter the tangent angle and line length.",
+  },
+  {
     input: circleCenterXInput,
     messageElement: circleToolMessage,
     invalidMessage: "Enter a valid arithmetic expression for center X.",
@@ -9383,6 +15911,20 @@ const arithmeticInputConfigurations = [
         : "Enter a positive radius, then choose Create.",
   },
   {
+    input: hexagonCenterXInput,
+    messageElement: hexagonToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for center X.",
+    successMessage:
+      "Enter the center coordinates, size across flats, and corner radius.",
+  },
+  {
+    input: hexagonCenterYInput,
+    messageElement: hexagonToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for center Y.",
+    successMessage:
+      "Enter the center coordinates, size across flats, and corner radius.",
+  },
+  {
     input: hexagonAcrossFlatsInput,
     messageElement: hexagonToolMessage,
     invalidMessage:
@@ -9390,6 +15932,7 @@ const arithmeticInputConfigurations = [
     validationMessage: (value) =>
       value > 0 ? null : "Enter a size across flats greater than zero.",
     successMessage: () =>
+      hexagonState.centerMode === "point" &&
       hexagonState.centerPointId === null
         ? "Select an existing point for the center."
         : "Enter the size across flats and an optional corner radius.",
@@ -9407,6 +15950,7 @@ const arithmeticInputConfigurations = [
         : null;
     },
     successMessage: () =>
+      hexagonState.centerMode === "point" &&
       hexagonState.centerPointId === null
         ? "Select an existing point for the center."
         : "Enter the size across flats and an optional corner radius.",
@@ -9461,13 +16005,27 @@ const arithmeticInputConfigurations = [
       "Enter the center location, overall dimensions, and corner radius.",
   },
   {
+    input: boltHoleCircleCenterXInput,
+    messageElement: boltHoleCircleToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for center X.",
+    successMessage:
+      "Enter the center and pattern dimensions; the first hole is at 0°.",
+  },
+  {
+    input: boltHoleCircleCenterYInput,
+    messageElement: boltHoleCircleToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for center Y.",
+    successMessage:
+      "Enter the center and pattern dimensions; the first hole is at 0°.",
+  },
+  {
     input: boltHoleDiameterInput,
     messageElement: boltHoleCircleToolMessage,
     invalidMessage:
       "Enter a valid arithmetic expression for the bolt hole diameter.",
     validationMessage: (value) =>
       value > 0 ? null : "Bolt hole diameter must be greater than zero.",
-    successMessage: "Center X0 Y0; the first hole is at 0°.",
+    successMessage: "Enter the pattern dimensions; the first hole is at 0°.",
   },
   {
     input: boltHoleCountInput,
@@ -9475,12 +16033,10 @@ const arithmeticInputConfigurations = [
     invalidMessage:
       "Enter a valid arithmetic expression for the number of holes.",
     validationMessage: (value) =>
-      Number.isSafeInteger(value) &&
-      value > 0 &&
-      value <= MAX_BOLT_HOLE_COUNT
+      Number.isSafeInteger(value) && value > 0 && value <= MAX_BOLT_HOLE_COUNT
         ? null
         : `Number of holes must be a whole number from 1 to ${MAX_BOLT_HOLE_COUNT}.`,
-    successMessage: "Center X0 Y0; the first hole is at 0°.",
+    successMessage: "Enter the pattern dimensions; the first hole is at 0°.",
   },
   {
     input: boltHoleFeatureDiameterInput,
@@ -9489,12 +16045,22 @@ const arithmeticInputConfigurations = [
       "Enter a valid arithmetic expression for the hole diameter.",
     validationMessage: (value) =>
       value >= 0 ? null : "Hole diameter must be zero or greater.",
-    successMessage: "Center X0 Y0; the first hole is at 0°.",
+    successMessage: "Enter the pattern dimensions; the first hole is at 0°.",
+  },
+  {
+    input: textHeightInput,
+    messageElement: textToolMessage,
+    invalidMessage:
+      "Enter a valid arithmetic expression for the text height.",
+    validationMessage: (value) =>
+      value > 0 ? null : "Text height must be greater than zero.",
+    successMessage: "Move the text with the pointer, then click to place it.",
   },
   {
     input: offsetAmountInput,
     messageElement: offsetToolMessage,
-    invalidMessage: "Enter a valid arithmetic expression for the offset amount.",
+    invalidMessage:
+      "Enter a valid arithmetic expression for the offset amount.",
     validationMessage: (value) =>
       value > 0 ? null : "Enter an offset amount greater than zero.",
     successMessage: () => {
@@ -9511,7 +16077,8 @@ const arithmeticInputConfigurations = [
   {
     input: filletRadiusInput,
     messageElement: filletToolMessage,
-    invalidMessage: "Enter a valid arithmetic expression for the fillet radius.",
+    invalidMessage:
+      "Enter a valid arithmetic expression for the fillet radius.",
     validationMessage: (value) =>
       value > 0 ? null : "Enter a fillet radius greater than zero.",
     successMessage: () =>
@@ -9524,6 +16091,36 @@ const arithmeticInputConfigurations = [
     messageElement: rotateToolMessage,
     invalidMessage: "Enter a valid arithmetic expression for the angle.",
     successMessage: "Enter a counterclockwise angle, then choose Rotate.",
+  },
+  {
+    input: translateXInput,
+    messageElement: translateToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for X.",
+    successMessage: "Enter the X and Y translation distances.",
+  },
+  {
+    input: translateYInput,
+    messageElement: translateToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for Y.",
+    successMessage: "Enter the X and Y translation distances.",
+  },
+  {
+    input: translateZInput,
+    messageElement: translateToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for Z.",
+    successMessage: "Enter the X, Y, and Z translation distances.",
+  },
+  {
+    input: pointIncrementalXInput,
+    messageElement: pointIncrementalToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for X.",
+    successMessage: "Enter the X and Y increments.",
+  },
+  {
+    input: pointIncrementalYInput,
+    messageElement: pointIncrementalToolMessage,
+    invalidMessage: "Enter a valid arithmetic expression for Y.",
+    successMessage: "Enter the X and Y increments.",
   },
   {
     input: pointOnEntityValueInput,
@@ -9560,6 +16157,8 @@ arithmeticInputConfigurations.forEach((configuration) => {
       renderToolPreview();
     }
     if (
+      configuration.input === hexagonCenterXInput ||
+      configuration.input === hexagonCenterYInput ||
       configuration.input === hexagonAcrossFlatsInput ||
       configuration.input === hexagonCornerRadiusInput
     ) {
@@ -9576,11 +16175,28 @@ arithmeticInputConfigurations.forEach((configuration) => {
       updateRectangleCreateState();
     }
     if (
+      configuration.input === boltHoleCircleCenterXInput ||
+      configuration.input === boltHoleCircleCenterYInput ||
       configuration.input === boltHoleDiameterInput ||
       configuration.input === boltHoleCountInput ||
       configuration.input === boltHoleFeatureDiameterInput
     ) {
       updateBoltHoleCircleCreateState();
+    }
+    if (configuration.input === textHeightInput) {
+      updateTextPlacementState();
+    }
+    if (
+      configuration.input === lineAngleDegreesInput ||
+      configuration.input === lineAngleLengthInput
+    ) {
+      updateLineAngleCreateState();
+    }
+    if (
+      configuration.input === lineTangentAngleInput ||
+      configuration.input === lineTangentLengthInput
+    ) {
+      updateLineTangentCreateState();
     }
   });
 });
@@ -9592,7 +16208,12 @@ arithmeticInputConfigurations.forEach((configuration) => {
   });
 });
 
-[hexagonAcrossFlatsInput, hexagonCornerRadiusInput].forEach((input) => {
+[
+  hexagonCenterXInput,
+  hexagonCenterYInput,
+  hexagonAcrossFlatsInput,
+  hexagonCornerRadiusInput,
+].forEach((input) => {
   input.addEventListener("input", () => {
     updateHexagonCreateState();
     renderToolPreview();
@@ -9610,6 +16231,8 @@ arithmeticInputConfigurations.forEach((configuration) => {
 });
 
 [
+  boltHoleCircleCenterXInput,
+  boltHoleCircleCenterYInput,
   boltHoleDiameterInput,
   boltHoleCountInput,
   boltHoleFeatureDiameterInput,
@@ -9617,12 +16240,32 @@ arithmeticInputConfigurations.forEach((configuration) => {
   input.addEventListener("input", updateBoltHoleCircleCreateState);
 });
 
+[textHeightInput, textContentInput].forEach((input) => {
+  input.addEventListener("input", updateTextPlacementState);
+});
+
+[lineAngleDegreesInput, lineAngleLengthInput].forEach((input) => {
+  input.addEventListener("input", updateLineAngleCreateState);
+});
+
+[lineAngleRelativeLineInput, lineAngleRelativeAxisInput].forEach((input) => {
+  input.addEventListener("change", updateLineAngleCreateState);
+});
+
+[lineTangentAngleInput, lineTangentLengthInput].forEach((input) => {
+  input.addEventListener("input", updateLineTangentCreateState);
+});
+
 pointCoordinatesMenu.addEventListener("click", activatePointCoordinates);
 pointIntersectMenu.addEventListener("click", activateIntersectingPoint);
 pointOnEntityMenu.addEventListener("click", activatePointOnEntity);
+pointEndMenu.addEventListener("click", activatePointEnd);
+pointIncrementalMenu.addEventListener("click", activatePointIncremental);
 pointSketchMenu.addEventListener("click", activatePointSketch);
 lineCoordinatesMenu.addEventListener("click", activateLineCoordinates);
 lineSketchMenu.addEventListener("click", activateLineSketch);
+lineAngleMenu.addEventListener("click", activateLineAngle);
+lineTangentMenu.addEventListener("click", activateLineTangent);
 exportDxfMenu.addEventListener("click", exportDxf);
 lineJoinMenu.addEventListener("click", activateJoin);
 circleCenterRadiusMenu.addEventListener("click", activateCircleCenterRadius);
@@ -9632,52 +16275,63 @@ circleCoordinateCenterMenu.addEventListener(
 );
 circleSketchCenterMenu.addEventListener("click", activateCircleSketchCenter);
 circleThreeEntitiesMenu.addEventListener("click", activateThreeEntityCircle);
-hexagonMenu.addEventListener("click", activateHexagon);
-rectangleMenu.addEventListener("click", activateRectangle);
-boltHoleCircleMenu.addEventListener("click", activateBoltHoleCircle);
+hexagonPointCenterMenu.addEventListener("click", () =>
+  activateHexagon("point"),
+);
+hexagonDefineCenterMenu.addEventListener("click", () =>
+  activateHexagon("defined"),
+);
+rectanglePointCenterMenu.addEventListener("click", () =>
+  activateRectangle("point"),
+);
+rectangleDefineCenterMenu.addEventListener("click", () =>
+  activateRectangle("defined"),
+);
+boltHoleCirclePointCenterMenu.addEventListener("click", () =>
+  activateBoltHoleCircle("point"),
+);
+boltHoleCircleDefineCenterMenu.addEventListener("click", () =>
+  activateBoltHoleCircle("defined"),
+);
+textMenu.addEventListener("click", activateText);
+modelBoxMenu.addEventListener("click", activateBox);
 offsetMenu.addEventListener("click", activateOffset);
 trimExtendMenu.addEventListener("click", activateTrimExtend);
 filletRadiusMenu.addEventListener("click", activateFillet);
 rotateMenu.addEventListener("click", activateRotate);
-linearDimensionMenu.addEventListener("click", () => activateDimension("linear"));
+translateCoordinatesMenu.addEventListener("click", activateTranslate);
+translateByPointsMenu.addEventListener("click", activateTranslateByPoints);
+linearDimensionMenu.addEventListener("click", () =>
+  activateDimension("linear"),
+);
 diameterDimensionMenu.addEventListener("click", () =>
   activateDimension("diameter"),
 );
-radiusDimensionMenu.addEventListener("click", () => activateDimension("radius"));
+radiusDimensionMenu.addEventListener("click", () =>
+  activateDimension("radius"),
+);
 angleDimensionMenu.addEventListener("click", () => activateDimension("angle"));
-mirrorXAxisMenu.addEventListener("click", () => mirrorSelectedEntity("x"));
-mirrorYAxisMenu.addEventListener("click", () => mirrorSelectedEntity("y"));
+mirrorXAxisMenu.addEventListener("click", () => mirrorSelectedEntities("x"));
+mirrorYAxisMenu.addEventListener("click", () => mirrorSelectedEntities("y"));
 mirrorBothAxesMenu.addEventListener("click", () =>
-  mirrorSelectedEntity("both"),
+  mirrorSelectedEntities("both"),
 );
 fileMenuButton.addEventListener("click", () => {
-  fileMenuItem.classList.remove("is-dismissed");
-});
-fileMenuItem.addEventListener("pointerleave", () => {
   fileMenuItem.classList.remove("is-dismissed");
 });
 drawMenuButton.addEventListener("click", () => {
   drawMenuItem.classList.remove("is-dismissed");
 });
-drawMenuItem.addEventListener("pointerleave", () => {
-  drawMenuItem.classList.remove("is-dismissed");
+modelMenuButton.addEventListener("click", () => {
+  modelMenuItem.classList.remove("is-dismissed");
 });
 modifyMenuButton.addEventListener("click", () => {
-  modifyMenuItem.classList.remove("is-dismissed");
-});
-modifyMenuItem.addEventListener("pointerleave", () => {
   modifyMenuItem.classList.remove("is-dismissed");
 });
 dimensionMenuButton.addEventListener("click", () => {
   dimensionMenuItem.classList.remove("is-dismissed");
 });
-dimensionMenuItem.addEventListener("pointerleave", () => {
-  dimensionMenuItem.classList.remove("is-dismissed");
-});
 editMenuButton.addEventListener("click", () => {
-  editMenuItem.classList.remove("is-dismissed");
-});
-editMenuItem.addEventListener("pointerleave", () => {
   editMenuItem.classList.remove("is-dismissed");
 });
 undoMenu.addEventListener("click", undoDocumentChange);
@@ -9686,28 +16340,95 @@ copyMenu.addEventListener("click", copySelectedEntities);
 pasteMenu.addEventListener("click", pasteCopiedEntities);
 cutMenu.addEventListener("click", cutSelectedEntities);
 deleteMenu.addEventListener("click", deleteSelectedEntity);
+quickIsometricButton.addEventListener("click", () => {
+  if (textPlacementState.active) closeTextWindow(null);
+  toggleIsometricView();
+});
 quickUndoButton.addEventListener("click", () => {
+  if (textPlacementState.active) closeTextWindow(null);
+  deactivatePointEnd();
   deactivateWindowZoom();
   undoDocumentChange();
 });
 quickRedoButton.addEventListener("click", () => {
+  if (textPlacementState.active) closeTextWindow(null);
+  deactivatePointEnd();
   deactivateWindowZoom();
   redoDocumentChange();
 });
-quickZoomInButton.addEventListener("click", zoomIn);
-quickZoomOutButton.addEventListener("click", zoomOut);
+quickZoomInButton.addEventListener("click", () => {
+  if (textPlacementState.active) closeTextWindow(null);
+  deactivatePointEnd();
+  zoomIn();
+});
+quickZoomOutButton.addEventListener("click", () => {
+  if (textPlacementState.active) closeTextWindow(null);
+  deactivatePointEnd();
+  zoomOut();
+});
 quickZoomWindowButton.addEventListener("click", () => {
+  if (textPlacementState.active) closeTextWindow(null);
+  deactivatePointEnd();
   deactivateDimension();
   activateWindowZoom();
 });
-quickHomeButton.addEventListener("click", homeView);
-quickFitButton.addEventListener("click", fitAllGeometry);
-quickCalculatorButton.addEventListener("click", openCalculatorWindow);
+quickHomeButton.addEventListener("click", () => {
+  if (textPlacementState.active) closeTextWindow(null);
+  deactivatePointEnd();
+  homeView();
+});
+quickFitButton.addEventListener("click", () => {
+  if (textPlacementState.active) closeTextWindow(null);
+  deactivatePointEnd();
+  fitAllGeometry();
+});
+quickCalculatorButton.addEventListener("click", () => {
+  if (textPlacementState.active) closeTextWindow(null);
+  deactivatePointEnd();
+  openCalculatorWindow();
+});
 
-document.querySelector(".menu-bar").addEventListener(
+boxMinimizeButton.addEventListener("click", toggleBoxWindowMinimized);
+boxMaximizeButton.addEventListener("click", toggleBoxWindowMaximized);
+boxCloseButton.addEventListener("click", () => closeBoxWindow());
+boxCancelButton.addEventListener("click", () => closeBoxWindow());
+boxWindowTitleBar.addEventListener("pointerdown", beginBoxWindowDrag);
+boxWindowTitleBar.addEventListener("pointermove", continueBoxWindowDrag);
+boxWindowTitleBar.addEventListener("pointerup", endBoxWindowDrag);
+boxWindowTitleBar.addEventListener("pointercancel", endBoxWindowDrag);
+boxWindowTitleBar.addEventListener("dblclick", (event) => {
+  if (!event.target.closest(".window-control")) toggleBoxWindowMaximized();
+});
+
+menuBar.addEventListener(
   "click",
   (event) => {
     const commandButton = event.target.closest(".dropdown-menu button");
+    const isGeometryMutationCommand =
+      commandButton &&
+      !commandButton.disabled &&
+      (drawMenuItem.contains(commandButton) ||
+        modifyMenuItem.contains(commandButton) ||
+        dimensionMenuItem.contains(commandButton) ||
+        [pasteMenu, cutMenu, deleteMenu].includes(commandButton));
+    const layerRestrictionMessage = isGeometryMutationCommand
+      ? getCurrentLayerRestrictionMessage("Layer")
+      : null;
+    if (layerRestrictionMessage) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      commandStatus.textContent = layerRestrictionMessage;
+      return;
+    }
+    if (
+      pointEndState.active &&
+      commandButton &&
+      commandButton !== pointEndMenu &&
+      !commandButton.disabled
+    ) {
+      deactivatePointEnd();
+    }
     const dimensionButtons = [
       linearDimensionMenu,
       diameterDimensionMenu,
@@ -9723,9 +16444,21 @@ document.querySelector(".menu-bar").addEventListener(
       deactivateDimension();
     }
     if (
+      !hexagonWindow.hidden &&
+      commandButton &&
+      ![hexagonPointCenterMenu, hexagonDefineCenterMenu].includes(
+        commandButton,
+      ) &&
+      !commandButton.disabled
+    ) {
+      closeHexagonWindow(null);
+    }
+    if (
       !rectangleWindow.hidden &&
       commandButton &&
-      commandButton !== rectangleMenu &&
+      ![rectanglePointCenterMenu, rectangleDefineCenterMenu].includes(
+        commandButton,
+      ) &&
       !commandButton.disabled
     ) {
       closeRectangleWindow(null);
@@ -9733,10 +16466,69 @@ document.querySelector(".menu-bar").addEventListener(
     if (
       !boltHoleCircleWindow.hidden &&
       commandButton &&
-      commandButton !== boltHoleCircleMenu &&
+      ![
+        boltHoleCirclePointCenterMenu,
+        boltHoleCircleDefineCenterMenu,
+      ].includes(commandButton) &&
       !commandButton.disabled
     ) {
       closeBoltHoleCircleWindow(null);
+    }
+    if (
+      textPlacementState.active &&
+      commandButton &&
+      commandButton !== textMenu &&
+      !commandButton.disabled
+    ) {
+      closeTextWindow(null);
+    }
+    if (
+      !boxWindow.hidden &&
+      commandButton &&
+      commandButton !== modelBoxMenu &&
+      !commandButton.disabled
+    ) {
+      closeBoxWindow(null);
+    }
+    if (
+      !translateWindow.hidden &&
+      commandButton &&
+      commandButton !== translateCoordinatesMenu &&
+      !commandButton.disabled
+    ) {
+      closeTranslateWindow(null);
+    }
+    if (
+      !pointIncrementalWindow.hidden &&
+      commandButton &&
+      commandButton !== pointIncrementalMenu &&
+      !commandButton.disabled
+    ) {
+      closePointIncrementalWindow(null);
+    }
+    if (
+      !translateByPointsWindow.hidden &&
+      commandButton &&
+      commandButton !== translateByPointsMenu &&
+      !commandButton.disabled
+    ) {
+      closeTranslateByPointsWindow(null);
+    }
+    if (
+      lineAngleState.active &&
+      commandButton &&
+      commandButton !== lineAngleMenu &&
+      !commandButton.disabled
+    ) {
+      deactivateLineAngle();
+    }
+    if (
+      lineTangentState.active &&
+      commandButton &&
+      commandButton !== lineTangentMenu &&
+      !commandButton.disabled
+    ) {
+      deactivateLineTangent();
     }
     if (
       windowZoomState.active &&
@@ -9749,9 +16541,6 @@ document.querySelector(".menu-bar").addEventListener(
   { capture: true },
 );
 viewMenuButton.addEventListener("click", () => {
-  viewMenuItem.classList.remove("is-dismissed");
-});
-viewMenuItem.addEventListener("pointerleave", () => {
   viewMenuItem.classList.remove("is-dismissed");
 });
 zoomInMenu.addEventListener("click", () => {
@@ -9771,17 +16560,13 @@ fitViewMenu.addEventListener("click", () => {
   dismissViewMenu();
   fitAllGeometry();
 });
+showTrihedronMenu.addEventListener("click", toggleTrihedronVisibility);
 layerMenuButton.addEventListener("click", () => {
   layerMenuItem.classList.remove("is-dismissed");
 });
-layerMenuItem.addEventListener("pointerleave", () => {
-  layerMenuItem.classList.remove("is-dismissed");
-});
-layerCurrentMenu.addEventListener("click", selectCurrentLayer);
+layerList.addEventListener("click", handleLayerMenuClick);
+newLayerMenu.addEventListener("click", createNewLayer);
 helpMenuButton.addEventListener("click", () => {
-  helpMenuItem.classList.remove("is-dismissed");
-});
-helpMenuItem.addEventListener("pointerleave", () => {
   helpMenuItem.classList.remove("is-dismissed");
 });
 aboutMenu.addEventListener("click", openAboutWindow);
@@ -9808,10 +16593,8 @@ aboutWindowTitleBar.addEventListener("pointermove", (event) => {
     0,
     window.innerHeight - aboutWindowTitleBar.offsetHeight,
   );
-  aboutWindow.style.left =
-    `${Math.min(maxLeft, Math.max(0, event.clientX - drag.offsetX))}px`;
-  aboutWindow.style.top =
-    `${Math.min(maxTop, Math.max(0, event.clientY - drag.offsetY))}px`;
+  aboutWindow.style.left = `${Math.min(maxLeft, Math.max(0, event.clientX - drag.offsetX))}px`;
+  aboutWindow.style.top = `${Math.min(maxTop, Math.max(0, event.clientY - drag.offsetY))}px`;
   aboutWindowState.hasPosition = true;
 });
 
@@ -9829,15 +16612,19 @@ aboutWindowTitleBar.addEventListener("pointercancel", stopAboutWindowDrag);
 themeMenuButton.addEventListener("click", () => {
   themeMenuItem.classList.remove("is-dismissed");
 });
-themeMenuItem.addEventListener("pointerleave", () => {
-  themeMenuItem.classList.remove("is-dismissed");
-});
 Object.entries(THEME_MENUS).forEach(([themeName, menuButton]) => {
   menuButton.addEventListener("click", () => selectTheme(themeName));
+});
+unitsMenuButton.addEventListener("click", () => {
+  unitsMenuItem.classList.remove("is-dismissed");
+});
+Object.entries(UNIT_MENUS).forEach(([units, menuButton]) => {
+  menuButton.addEventListener("click", () => setDocumentUnits(units));
 });
 selectAllMenu.addEventListener("click", selectAllEntities);
 singleSelectMenu.addEventListener("click", activateSingleSelect);
 selectChainMenu.addEventListener("click", activateChainSelect);
+selectLayerList.addEventListener("click", handleSelectLayerMenuClick);
 selectPointsMenu.addEventListener("click", selectAllPoints);
 selectLinesMenu.addEventListener("click", selectAllLines);
 selectArcsMenu.addEventListener("click", selectAllArcsAndCircles);
@@ -9846,11 +16633,9 @@ deselectAllMenu.addEventListener("click", deselectAllEntities);
 selectMenuButton.addEventListener("click", () => {
   selectMenuItem.classList.remove("is-dismissed");
 });
-selectMenuItem.addEventListener("pointerleave", () => {
-  selectMenuItem.classList.remove("is-dismissed");
-});
 
 cadCanvas.addEventListener("pointerdown", (event) => {
+  if (beginCanvasNavigation(event)) return;
   if (!windowZoomState.active || event.button !== 0) return;
   event.preventDefault();
   windowZoomState.drag = {
@@ -9865,10 +16650,12 @@ cadCanvas.addEventListener("pointerdown", (event) => {
 });
 
 cadCanvas.addEventListener("pointermove", (event) => {
+  if (continueCanvasNavigation(event)) return;
   if (windowZoomState.active) updateWindowZoomDrag(event);
 });
 
 cadCanvas.addEventListener("pointerup", (event) => {
+  if (finishCanvasNavigation(event)) return;
   if (windowZoomState.active) {
     completeWindowZoom(event);
   } else if (windowZoomState.canceledPointerId === event.pointerId) {
@@ -9878,6 +16665,10 @@ cadCanvas.addEventListener("pointerup", (event) => {
 });
 
 cadCanvas.addEventListener("pointercancel", (event) => {
+  if (canvasNavigationState.drag?.pointerId === event.pointerId) {
+    cancelCanvasNavigation("Navigation interrupted.");
+    return;
+  }
   if (windowZoomState.active) {
     cancelWindowZoomDrag(event);
   } else if (windowZoomState.canceledPointerId === event.pointerId) {
@@ -9886,7 +16677,29 @@ cadCanvas.addEventListener("pointercancel", (event) => {
   }
 });
 
+cadCanvas.addEventListener("wheel", zoomCanvasAtPointer, { passive: false });
+
+cadCanvas.addEventListener("auxclick", (event) => {
+  if (event.button === 1) event.preventDefault();
+});
+
+cadCanvas.addEventListener("contextmenu", (event) => {
+  if (!isometricViewState.active) return;
+  event.preventDefault();
+  if (performance.now() <= canvasNavigationState.suppressContextMenuUntil) {
+    return;
+  }
+  commandStatus.textContent =
+    "3D context menu is reserved for a future command set.";
+});
+
 cadCanvas.addEventListener("click", (event) => {
+  if (performance.now() <= canvasNavigationState.suppressClickUntil) {
+    canvasNavigationState.suppressClickUntil = 0;
+    return;
+  }
+  canvasNavigationState.suppressClickUntil = 0;
+  if (isometricViewState.active) return;
   if (performance.now() <= windowZoomState.suppressClickUntil) {
     windowZoomState.suppressClickUntil = 0;
     return;
@@ -9894,13 +16707,33 @@ cadCanvas.addEventListener("click", (event) => {
   windowZoomState.suppressClickUntil = 0;
   if (windowZoomState.active) return;
 
+  if (textPlacementState.active) {
+    handleTextPlacementClick(event);
+    return;
+  }
+
   if (rotateState.active && rotateState.awaitingPivot) {
     handleRotatePivotClick(event);
     return;
   }
 
+  if (translateByPointsState.active) {
+    handleTranslateByPointsClick(event);
+    return;
+  }
+
   if (dimensionState.activeType !== null) {
     handleDimensionClick(event);
+    return;
+  }
+
+  if (lineAngleState.active) {
+    handleLineAngleClick(event);
+    return;
+  }
+
+  if (lineTangentState.active) {
+    handleLineTangentClick(event);
     return;
   }
 
@@ -9924,8 +16757,21 @@ cadCanvas.addEventListener("click", (event) => {
     return;
   }
 
-  if (hexagonState.active) {
+  if (hexagonState.active && hexagonState.centerMode === "point") {
     handleHexagonCenterClick(event);
+    return;
+  }
+
+  if (rectangleState.active && rectangleState.centerMode === "point") {
+    handleRectangleCenterClick(event);
+    return;
+  }
+
+  if (
+    boltHoleCircleState.active &&
+    boltHoleCircleState.centerMode === "point"
+  ) {
+    handleBoltHoleCircleCenterClick(event);
     return;
   }
 
@@ -9941,6 +16787,11 @@ cadCanvas.addEventListener("click", (event) => {
 
   if (filletState.active) {
     handleFilletClick(event);
+    return;
+  }
+
+  if (pointEndState.active) {
+    handlePointEndClick(event);
     return;
   }
 
@@ -9978,7 +16829,9 @@ cadCanvas.addEventListener("click", (event) => {
         event.clientY - previousCycle.clientY,
       ) <= 4 &&
       candidateIds.length === previousCycle.candidateIds.length &&
-      candidateIds.every((id, index) => id === previousCycle.candidateIds[index]);
+      candidateIds.every(
+        (id, index) => id === previousCycle.candidateIds[index],
+      );
     const candidateIndex = repeatsPreviousPick
       ? (previousCycle.index + 1) % candidates.length
       : 0;
@@ -10118,6 +16971,161 @@ lineCoordinatesWindowTitleBar.addEventListener("dblclick", (event) => {
   }
 });
 
+lineAngleMinimizeButton.addEventListener("click", () => {
+  if (lineAngleWindow.classList.contains("is-maximized")) {
+    restoreLineAngleWindow();
+  }
+  const minimized = !lineAngleWindow.classList.contains("is-minimized");
+  setLineAngleWindowMinimized(minimized);
+});
+
+lineAngleMaximizeButton.addEventListener(
+  "click",
+  toggleLineAngleWindowMaximized,
+);
+
+lineAngleCloseButton.addEventListener("click", () => {
+  deactivateLineAngle("Line - Angle canceled.");
+});
+
+lineAngleCancelButton.addEventListener("click", () => {
+  deactivateLineAngle("Line - Angle canceled.");
+});
+
+lineAngleWindowTitleBar.addEventListener("pointerdown", (event) => {
+  if (
+    event.button !== 0 ||
+    event.target.closest(".window-control") ||
+    lineAngleWindow.classList.contains("is-maximized")
+  ) {
+    return;
+  }
+  const bounds = lineAngleWindow.getBoundingClientRect();
+  lineAngleWindowState.drag = {
+    pointerId: event.pointerId,
+    offsetX: event.clientX - bounds.left,
+    offsetY: event.clientY - bounds.top,
+  };
+  lineAngleWindowTitleBar.classList.add("is-dragging");
+  lineAngleWindowTitleBar.setPointerCapture(event.pointerId);
+});
+
+lineAngleWindowTitleBar.addEventListener("pointermove", (event) => {
+  const drag = lineAngleWindowState.drag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  const bounds = lineAngleWindow.getBoundingClientRect();
+  const maxLeft = Math.max(0, window.innerWidth - bounds.width);
+  const maxTop = Math.max(
+    0,
+    window.innerHeight - lineAngleWindowTitleBar.offsetHeight,
+  );
+  const left = Math.min(maxLeft, Math.max(0, event.clientX - drag.offsetX));
+  const top = Math.min(maxTop, Math.max(0, event.clientY - drag.offsetY));
+  lineAngleWindow.style.left = `${left}px`;
+  lineAngleWindow.style.top = `${top}px`;
+  lineAngleWindowState.hasPosition = true;
+});
+
+function stopLineAngleWindowDrag(event) {
+  if (lineAngleWindowState.drag?.pointerId !== event.pointerId) return;
+  lineAngleWindowState.drag = null;
+  lineAngleWindowTitleBar.classList.remove("is-dragging");
+  if (lineAngleWindowTitleBar.hasPointerCapture(event.pointerId)) {
+    lineAngleWindowTitleBar.releasePointerCapture(event.pointerId);
+  }
+}
+
+lineAngleWindowTitleBar.addEventListener("pointerup", stopLineAngleWindowDrag);
+lineAngleWindowTitleBar.addEventListener(
+  "pointercancel",
+  stopLineAngleWindowDrag,
+);
+
+lineAngleWindowTitleBar.addEventListener("dblclick", (event) => {
+  if (!event.target.closest(".window-control")) {
+    toggleLineAngleWindowMaximized();
+  }
+});
+
+lineTangentMinimizeButton.addEventListener("click", () => {
+  if (lineTangentWindow.classList.contains("is-maximized")) {
+    restoreLineTangentWindow();
+  }
+  const minimized = !lineTangentWindow.classList.contains("is-minimized");
+  setLineTangentWindowMinimized(minimized);
+});
+
+lineTangentMaximizeButton.addEventListener(
+  "click",
+  toggleLineTangentWindowMaximized,
+);
+
+lineTangentCloseButton.addEventListener("click", () => {
+  deactivateLineTangent("Line - Tangent canceled.");
+});
+
+lineTangentCancelButton.addEventListener("click", () => {
+  deactivateLineTangent("Line - Tangent canceled.");
+});
+
+lineTangentWindowTitleBar.addEventListener("pointerdown", (event) => {
+  if (
+    event.button !== 0 ||
+    event.target.closest(".window-control") ||
+    lineTangentWindow.classList.contains("is-maximized")
+  ) {
+    return;
+  }
+  const bounds = lineTangentWindow.getBoundingClientRect();
+  lineTangentWindowState.drag = {
+    pointerId: event.pointerId,
+    offsetX: event.clientX - bounds.left,
+    offsetY: event.clientY - bounds.top,
+  };
+  lineTangentWindowTitleBar.classList.add("is-dragging");
+  lineTangentWindowTitleBar.setPointerCapture(event.pointerId);
+});
+
+lineTangentWindowTitleBar.addEventListener("pointermove", (event) => {
+  const drag = lineTangentWindowState.drag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  const bounds = lineTangentWindow.getBoundingClientRect();
+  const maxLeft = Math.max(0, window.innerWidth - bounds.width);
+  const maxTop = Math.max(
+    0,
+    window.innerHeight - lineTangentWindowTitleBar.offsetHeight,
+  );
+  const left = Math.min(maxLeft, Math.max(0, event.clientX - drag.offsetX));
+  const top = Math.min(maxTop, Math.max(0, event.clientY - drag.offsetY));
+  lineTangentWindow.style.left = `${left}px`;
+  lineTangentWindow.style.top = `${top}px`;
+  lineTangentWindowState.hasPosition = true;
+});
+
+function stopLineTangentWindowDrag(event) {
+  if (lineTangentWindowState.drag?.pointerId !== event.pointerId) return;
+  lineTangentWindowState.drag = null;
+  lineTangentWindowTitleBar.classList.remove("is-dragging");
+  if (lineTangentWindowTitleBar.hasPointerCapture(event.pointerId)) {
+    lineTangentWindowTitleBar.releasePointerCapture(event.pointerId);
+  }
+}
+
+lineTangentWindowTitleBar.addEventListener(
+  "pointerup",
+  stopLineTangentWindowDrag,
+);
+lineTangentWindowTitleBar.addEventListener(
+  "pointercancel",
+  stopLineTangentWindowDrag,
+);
+
+lineTangentWindowTitleBar.addEventListener("dblclick", (event) => {
+  if (!event.target.closest(".window-control")) {
+    toggleLineTangentWindowMaximized();
+  }
+});
+
 pointOnEntityMinimizeButton.addEventListener("click", () => {
   if (pointOnEntityWindow.classList.contains("is-maximized")) {
     restorePointOnEntityWindow();
@@ -10250,7 +17258,10 @@ circleWindowTitleBar.addEventListener("pointermove", (event) => {
 
   const bounds = circleRadiusWindow.getBoundingClientRect();
   const maxLeft = Math.max(0, window.innerWidth - bounds.width);
-  const maxTop = Math.max(0, window.innerHeight - circleWindowTitleBar.offsetHeight);
+  const maxTop = Math.max(
+    0,
+    window.innerHeight - circleWindowTitleBar.offsetHeight,
+  );
   const left = Math.min(maxLeft, Math.max(0, event.clientX - drag.offsetX));
   const top = Math.min(maxTop, Math.max(0, event.clientY - drag.offsetY));
 
@@ -10503,6 +17514,71 @@ boltHoleCircleWindowTitleBar.addEventListener("dblclick", (event) => {
   }
 });
 
+textMinimizeButton.addEventListener("click", () => {
+  if (textWindow.classList.contains("is-maximized")) restoreTextWindow();
+  const minimized = !textWindow.classList.contains("is-minimized");
+  setTextWindowMinimized(minimized);
+});
+
+textMaximizeButton.addEventListener("click", toggleTextWindowMaximized);
+
+textCloseButton.addEventListener("click", () => {
+  closeTextWindow("Text canceled.");
+});
+
+textCancelButton.addEventListener("click", () => {
+  closeTextWindow("Text canceled.");
+});
+
+textWindowTitleBar.addEventListener("pointerdown", (event) => {
+  if (
+    event.button !== 0 ||
+    event.target.closest(".window-control") ||
+    textWindow.classList.contains("is-maximized")
+  ) {
+    return;
+  }
+  const bounds = textWindow.getBoundingClientRect();
+  textWindowState.drag = {
+    pointerId: event.pointerId,
+    offsetX: event.clientX - bounds.left,
+    offsetY: event.clientY - bounds.top,
+  };
+  textWindowTitleBar.classList.add("is-dragging");
+  textWindowTitleBar.setPointerCapture(event.pointerId);
+});
+
+textWindowTitleBar.addEventListener("pointermove", (event) => {
+  const drag = textWindowState.drag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  const bounds = textWindow.getBoundingClientRect();
+  const maxLeft = Math.max(0, window.innerWidth - bounds.width);
+  const maxTop = Math.max(
+    0,
+    window.innerHeight - textWindowTitleBar.offsetHeight,
+  );
+  const left = Math.min(maxLeft, Math.max(0, event.clientX - drag.offsetX));
+  const top = Math.min(maxTop, Math.max(0, event.clientY - drag.offsetY));
+  textWindow.style.left = `${left}px`;
+  textWindow.style.top = `${top}px`;
+  textWindowState.hasPosition = true;
+});
+
+function stopTextWindowDrag(event) {
+  if (textWindowState.drag?.pointerId !== event.pointerId) return;
+  textWindowState.drag = null;
+  textWindowTitleBar.classList.remove("is-dragging");
+  if (textWindowTitleBar.hasPointerCapture(event.pointerId)) {
+    textWindowTitleBar.releasePointerCapture(event.pointerId);
+  }
+}
+
+textWindowTitleBar.addEventListener("pointerup", stopTextWindowDrag);
+textWindowTitleBar.addEventListener("pointercancel", stopTextWindowDrag);
+textWindowTitleBar.addEventListener("dblclick", (event) => {
+  if (!event.target.closest(".window-control")) toggleTextWindowMaximized();
+});
+
 offsetMinimizeButton.addEventListener("click", () => {
   if (offsetWindow.classList.contains("is-maximized")) {
     restoreOffsetWindow();
@@ -10547,7 +17623,10 @@ offsetWindowTitleBar.addEventListener("pointermove", (event) => {
 
   const bounds = offsetWindow.getBoundingClientRect();
   const maxLeft = Math.max(0, window.innerWidth - bounds.width);
-  const maxTop = Math.max(0, window.innerHeight - offsetWindowTitleBar.offsetHeight);
+  const maxTop = Math.max(
+    0,
+    window.innerHeight - offsetWindowTitleBar.offsetHeight,
+  );
   const left = Math.min(maxLeft, Math.max(0, event.clientX - drag.offsetX));
   const top = Math.min(maxTop, Math.max(0, event.clientY - drag.offsetY));
 
@@ -10725,6 +17804,240 @@ rotateWindowTitleBar.addEventListener("dblclick", (event) => {
   }
 });
 
+pointIncrementalMinimizeButton.addEventListener("click", () => {
+  if (pointIncrementalWindow.classList.contains("is-maximized")) {
+    restorePointIncrementalWindow();
+  }
+  const minimized = !pointIncrementalWindow.classList.contains("is-minimized");
+  setPointIncrementalWindowMinimized(minimized);
+});
+
+pointIncrementalMaximizeButton.addEventListener(
+  "click",
+  togglePointIncrementalWindowMaximized,
+);
+
+pointIncrementalCloseButton.addEventListener("click", () => {
+  closePointIncrementalWindow("Point - Incremental canceled.");
+});
+
+pointIncrementalCancelButton.addEventListener("click", () => {
+  closePointIncrementalWindow("Point - Incremental canceled.");
+});
+
+pointIncrementalWindowTitleBar.addEventListener("pointerdown", (event) => {
+  if (
+    event.button !== 0 ||
+    event.target.closest(".window-control") ||
+    pointIncrementalWindow.classList.contains("is-maximized")
+  ) {
+    return;
+  }
+  const bounds = pointIncrementalWindow.getBoundingClientRect();
+  pointIncrementalWindowState.drag = {
+    pointerId: event.pointerId,
+    offsetX: event.clientX - bounds.left,
+    offsetY: event.clientY - bounds.top,
+  };
+  pointIncrementalWindowTitleBar.classList.add("is-dragging");
+  pointIncrementalWindowTitleBar.setPointerCapture(event.pointerId);
+});
+
+pointIncrementalWindowTitleBar.addEventListener("pointermove", (event) => {
+  const drag = pointIncrementalWindowState.drag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  const bounds = pointIncrementalWindow.getBoundingClientRect();
+  const maxLeft = Math.max(0, window.innerWidth - bounds.width);
+  const maxTop = Math.max(
+    0,
+    window.innerHeight - pointIncrementalWindowTitleBar.offsetHeight,
+  );
+  const left = Math.min(maxLeft, Math.max(0, event.clientX - drag.offsetX));
+  const top = Math.min(maxTop, Math.max(0, event.clientY - drag.offsetY));
+  pointIncrementalWindow.style.left = `${left}px`;
+  pointIncrementalWindow.style.top = `${top}px`;
+  pointIncrementalWindowState.hasPosition = true;
+});
+
+function stopPointIncrementalWindowDrag(event) {
+  if (pointIncrementalWindowState.drag?.pointerId !== event.pointerId) return;
+  pointIncrementalWindowState.drag = null;
+  pointIncrementalWindowTitleBar.classList.remove("is-dragging");
+  if (pointIncrementalWindowTitleBar.hasPointerCapture(event.pointerId)) {
+    pointIncrementalWindowTitleBar.releasePointerCapture(event.pointerId);
+  }
+}
+
+pointIncrementalWindowTitleBar.addEventListener(
+  "pointerup",
+  stopPointIncrementalWindowDrag,
+);
+pointIncrementalWindowTitleBar.addEventListener(
+  "pointercancel",
+  stopPointIncrementalWindowDrag,
+);
+
+pointIncrementalWindowTitleBar.addEventListener("dblclick", (event) => {
+  if (!event.target.closest(".window-control")) {
+    togglePointIncrementalWindowMaximized();
+  }
+});
+
+translateByPointsMinimizeButton.addEventListener("click", () => {
+  if (translateByPointsWindow.classList.contains("is-maximized")) {
+    restoreTranslateByPointsWindow();
+  }
+  const minimized = !translateByPointsWindow.classList.contains("is-minimized");
+  setTranslateByPointsWindowMinimized(minimized);
+});
+
+translateByPointsMaximizeButton.addEventListener(
+  "click",
+  toggleTranslateByPointsWindowMaximized,
+);
+
+translateByPointsCloseButton.addEventListener("click", () => {
+  closeTranslateByPointsWindow("Translate - By Points canceled.");
+});
+
+translateByPointsCancelButton.addEventListener("click", () => {
+  closeTranslateByPointsWindow("Translate - By Points canceled.");
+});
+
+translateByPointsWindowTitleBar.addEventListener("pointerdown", (event) => {
+  if (
+    event.button !== 0 ||
+    event.target.closest(".window-control") ||
+    translateByPointsWindow.classList.contains("is-maximized")
+  ) {
+    return;
+  }
+  const bounds = translateByPointsWindow.getBoundingClientRect();
+  translateByPointsWindowState.drag = {
+    pointerId: event.pointerId,
+    offsetX: event.clientX - bounds.left,
+    offsetY: event.clientY - bounds.top,
+  };
+  translateByPointsWindowTitleBar.classList.add("is-dragging");
+  translateByPointsWindowTitleBar.setPointerCapture(event.pointerId);
+});
+
+translateByPointsWindowTitleBar.addEventListener("pointermove", (event) => {
+  const drag = translateByPointsWindowState.drag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  const bounds = translateByPointsWindow.getBoundingClientRect();
+  const maxLeft = Math.max(0, window.innerWidth - bounds.width);
+  const maxTop = Math.max(
+    0,
+    window.innerHeight - translateByPointsWindowTitleBar.offsetHeight,
+  );
+  const left = Math.min(maxLeft, Math.max(0, event.clientX - drag.offsetX));
+  const top = Math.min(maxTop, Math.max(0, event.clientY - drag.offsetY));
+  translateByPointsWindow.style.left = `${left}px`;
+  translateByPointsWindow.style.top = `${top}px`;
+  translateByPointsWindowState.hasPosition = true;
+});
+
+function stopTranslateByPointsWindowDrag(event) {
+  if (translateByPointsWindowState.drag?.pointerId !== event.pointerId) return;
+  translateByPointsWindowState.drag = null;
+  translateByPointsWindowTitleBar.classList.remove("is-dragging");
+  if (translateByPointsWindowTitleBar.hasPointerCapture(event.pointerId)) {
+    translateByPointsWindowTitleBar.releasePointerCapture(event.pointerId);
+  }
+}
+
+translateByPointsWindowTitleBar.addEventListener(
+  "pointerup",
+  stopTranslateByPointsWindowDrag,
+);
+translateByPointsWindowTitleBar.addEventListener(
+  "pointercancel",
+  stopTranslateByPointsWindowDrag,
+);
+
+translateByPointsWindowTitleBar.addEventListener("dblclick", (event) => {
+  if (!event.target.closest(".window-control")) {
+    toggleTranslateByPointsWindowMaximized();
+  }
+});
+
+translateMinimizeButton.addEventListener("click", () => {
+  if (translateWindow.classList.contains("is-maximized")) {
+    restoreTranslateWindow();
+  }
+  const minimized = !translateWindow.classList.contains("is-minimized");
+  setTranslateWindowMinimized(minimized);
+});
+
+translateMaximizeButton.addEventListener(
+  "click",
+  toggleTranslateWindowMaximized,
+);
+
+translateCloseButton.addEventListener("click", () => {
+  closeTranslateWindow("Translate canceled.");
+});
+
+translateCancelButton.addEventListener("click", () => {
+  closeTranslateWindow("Translate canceled.");
+});
+
+translateWindowTitleBar.addEventListener("pointerdown", (event) => {
+  if (
+    event.button !== 0 ||
+    event.target.closest(".window-control") ||
+    translateWindow.classList.contains("is-maximized")
+  ) {
+    return;
+  }
+  const bounds = translateWindow.getBoundingClientRect();
+  translateWindowState.drag = {
+    pointerId: event.pointerId,
+    offsetX: event.clientX - bounds.left,
+    offsetY: event.clientY - bounds.top,
+  };
+  translateWindowTitleBar.classList.add("is-dragging");
+  translateWindowTitleBar.setPointerCapture(event.pointerId);
+});
+
+translateWindowTitleBar.addEventListener("pointermove", (event) => {
+  const drag = translateWindowState.drag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  const bounds = translateWindow.getBoundingClientRect();
+  const maxLeft = Math.max(0, window.innerWidth - bounds.width);
+  const maxTop = Math.max(
+    0,
+    window.innerHeight - translateWindowTitleBar.offsetHeight,
+  );
+  const left = Math.min(maxLeft, Math.max(0, event.clientX - drag.offsetX));
+  const top = Math.min(maxTop, Math.max(0, event.clientY - drag.offsetY));
+  translateWindow.style.left = `${left}px`;
+  translateWindow.style.top = `${top}px`;
+  translateWindowState.hasPosition = true;
+});
+
+function stopTranslateWindowDrag(event) {
+  if (translateWindowState.drag?.pointerId !== event.pointerId) return;
+  translateWindowState.drag = null;
+  translateWindowTitleBar.classList.remove("is-dragging");
+  if (translateWindowTitleBar.hasPointerCapture(event.pointerId)) {
+    translateWindowTitleBar.releasePointerCapture(event.pointerId);
+  }
+}
+
+translateWindowTitleBar.addEventListener("pointerup", stopTranslateWindowDrag);
+translateWindowTitleBar.addEventListener(
+  "pointercancel",
+  stopTranslateWindowDrag,
+);
+
+translateWindowTitleBar.addEventListener("dblclick", (event) => {
+  if (!event.target.closest(".window-control")) {
+    toggleTranslateWindowMaximized();
+  }
+});
+
 pointWindowTitleBar.addEventListener("pointerdown", (event) => {
   if (
     event.button !== 0 ||
@@ -10750,7 +18063,10 @@ pointWindowTitleBar.addEventListener("pointermove", (event) => {
 
   const bounds = pointCoordinatesWindow.getBoundingClientRect();
   const maxLeft = Math.max(0, window.innerWidth - bounds.width);
-  const maxTop = Math.max(0, window.innerHeight - pointWindowTitleBar.offsetHeight);
+  const maxTop = Math.max(
+    0,
+    window.innerHeight - pointWindowTitleBar.offsetHeight,
+  );
   const left = Math.min(maxLeft, Math.max(0, event.clientX - drag.offsetX));
   const top = Math.min(maxTop, Math.max(0, event.clientY - drag.offsetY));
 
@@ -10780,6 +18096,26 @@ pointWindowTitleBar.addEventListener("dblclick", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.target.closest(".calc-window")) return;
+
+  if (event.key === "Escape" && canvasNavigationState.drag) {
+    event.preventDefault();
+    cancelCanvasNavigation("Navigation canceled.");
+    return;
+  }
+
+  if (event.key === "Escape" && !boxWindow.hidden) {
+    event.preventDefault();
+    closeBoxWindow();
+    return;
+  }
+
+  if (isometricViewState.active) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      exitIsometricView();
+      return;
+    }
+  }
 
   const isEditingText = event.target.closest(
     "input, textarea, select, [contenteditable='true']",
@@ -10829,6 +18165,30 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
+  if (event.key === "Escape" && textPlacementState.active) {
+    event.preventDefault();
+    closeTextWindow("Text canceled.");
+    return;
+  }
+
+  if (event.key === "Escape" && !translateWindow.hidden) {
+    event.preventDefault();
+    closeTranslateWindow("Translate canceled.");
+    return;
+  }
+
+  if (event.key === "Escape" && !translateByPointsWindow.hidden) {
+    event.preventDefault();
+    closeTranslateByPointsWindow("Translate - By Points canceled.");
+    return;
+  }
+
+  if (event.key === "Escape" && !pointIncrementalWindow.hidden) {
+    event.preventDefault();
+    closePointIncrementalWindow("Point - Incremental canceled.");
+    return;
+  }
+
   if (event.key === "Escape" && !aboutWindow.hidden) {
     event.preventDefault();
     closeAboutWindow();
@@ -10857,6 +18217,16 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
+  if (event.key === "Escape" && lineAngleState.active) {
+    deactivateLineAngle("Line - Angle canceled.");
+    return;
+  }
+
+  if (event.key === "Escape" && lineTangentState.active) {
+    deactivateLineTangent("Line - Tangent canceled.");
+    return;
+  }
+
   if (event.key === "Escape" && threeEntityCircleState.active) {
     deactivateThreeEntityCircle("Circle - 3 Entities canceled.");
     return;
@@ -10874,6 +18244,11 @@ document.addEventListener("keydown", (event) => {
 
   if (event.key === "Escape" && pointOnEntityState.active) {
     deactivatePointOnEntity("Point on Entity canceled.");
+    return;
+  }
+
+  if (event.key === "Escape" && pointEndState.active) {
+    deactivatePointEnd("Point - End canceled.");
     return;
   }
 
@@ -10927,53 +18302,235 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-function keepToolWindowInViewport(toolWindow, titleBar) {
-  if (toolWindow.hidden || toolWindow.classList.contains("is-maximized")) return;
+// Floating-window workspace policy. Adjust this one value if later shop-floor
+// testing suggests a little more or less vertical coverage.
+const TOOL_WINDOW_MAX_WORKSPACE_HEIGHT_RATIO = 0.88;
+const TOOL_WINDOW_WORKSPACE_MARGIN_PX = 8;
 
-  const bounds = toolWindow.getBoundingClientRect();
-  const left = Math.min(bounds.left, Math.max(0, window.innerWidth - bounds.width));
-  const top = Math.min(
-    bounds.top,
-    Math.max(0, window.innerHeight - titleBar.offsetHeight),
+const managedToolWindows = [
+  [pointCoordinatesWindow, pointWindowTitleBar],
+  [lineCoordinatesWindow, lineCoordinatesWindowTitleBar],
+  [lineAngleWindow, lineAngleWindowTitleBar],
+  [lineTangentWindow, lineTangentWindowTitleBar],
+  [circleRadiusWindow, circleWindowTitleBar],
+  [hexagonWindow, hexagonWindowTitleBar],
+  [rectangleWindow, rectangleWindowTitleBar],
+  [boltHoleCircleWindow, boltHoleCircleWindowTitleBar],
+  [textWindow, textWindowTitleBar],
+  [offsetWindow, offsetWindowTitleBar],
+  [filletWindow, filletWindowTitleBar],
+  [rotateWindow, rotateWindowTitleBar],
+  [translateWindow, translateWindowTitleBar],
+  [translateByPointsWindow, translateByPointsWindowTitleBar],
+  [pointIncrementalWindow, pointIncrementalWindowTitleBar],
+  [pointOnEntityWindow, pointOnEntityWindowTitleBar],
+  [boxWindow, boxWindowTitleBar],
+  [aboutWindow, aboutWindowTitleBar],
+];
+
+function getFloatingWindowWorkspaceBounds() {
+  const drawingBounds = drawingArea.getBoundingClientRect();
+  const hasDrawingWorkspace =
+    drawingBounds.width > 0 && drawingBounds.height > 0;
+  const source = hasDrawingWorkspace
+    ? drawingBounds
+    : { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
+  const margin = TOOL_WINDOW_WORKSPACE_MARGIN_PX;
+  const left = Math.min(source.right, source.left + margin);
+  const top = Math.min(source.bottom, source.top + margin);
+  const right = Math.max(left, source.right - margin);
+  const bottom = Math.max(top, source.bottom - margin);
+  const width = Math.max(1, right - left);
+  const height = Math.max(1, bottom - top);
+  const maxHeight = Math.max(
+    1,
+    Math.floor(height * TOOL_WINDOW_MAX_WORKSPACE_HEIGHT_RATIO),
   );
-  toolWindow.style.left = `${Math.max(0, left)}px`;
-  toolWindow.style.top = `${Math.max(0, top)}px`;
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    width,
+    height,
+    maxHeight,
+    maximizedTop: top + Math.max(0, (height - maxHeight) / 2),
+  };
 }
 
+function setFloatingWindowWorkspaceVariables(toolWindow, workspaceBounds) {
+  toolWindow.style.setProperty(
+    "--tool-window-workspace-left",
+    `${workspaceBounds.left}px`,
+  );
+  toolWindow.style.setProperty(
+    "--tool-window-workspace-top",
+    `${workspaceBounds.maximizedTop}px`,
+  );
+  toolWindow.style.setProperty(
+    "--tool-window-max-width",
+    `${workspaceBounds.width}px`,
+  );
+  toolWindow.style.setProperty(
+    "--tool-window-max-height",
+    `${workspaceBounds.maxHeight}px`,
+  );
+}
+
+function keepFloatingWindowInWorkspace(floatingWindow, titleBar = null) {
+  if (!floatingWindow || floatingWindow.hidden) return;
+  const workspaceBounds = getFloatingWindowWorkspaceBounds();
+  const isToolWindow = floatingWindow.classList.contains("tool-window");
+  if (isToolWindow) {
+    setFloatingWindowWorkspaceVariables(floatingWindow, workspaceBounds);
+  } else {
+    floatingWindow.style.maxWidth = `${workspaceBounds.width}px`;
+    floatingWindow.style.maxHeight = `${workspaceBounds.maxHeight}px`;
+  }
+
+  if (floatingWindow.classList.contains("is-maximized")) return;
+  let bounds = floatingWindow.getBoundingClientRect();
+  if (bounds.width > workspaceBounds.width) {
+    floatingWindow.style.width = `${workspaceBounds.width}px`;
+  }
+  if (bounds.height > workspaceBounds.maxHeight) {
+    floatingWindow.style.height = `${workspaceBounds.maxHeight}px`;
+  }
+  bounds = floatingWindow.getBoundingClientRect();
+  const visibleHeight = floatingWindow.classList.contains("is-minimized")
+    ? Math.max(titleBar?.offsetHeight ?? bounds.height, 1)
+    : bounds.height;
+  const maximumLeft = Math.max(
+    workspaceBounds.left,
+    workspaceBounds.right - bounds.width,
+  );
+  const maximumTop = Math.max(
+    workspaceBounds.top,
+    workspaceBounds.bottom - visibleHeight,
+  );
+  const left = Math.min(
+    maximumLeft,
+    Math.max(workspaceBounds.left, bounds.left),
+  );
+  const top = Math.min(
+    maximumTop,
+    Math.max(workspaceBounds.top, bounds.top),
+  );
+  floatingWindow.style.left = `${left}px`;
+  floatingWindow.style.top = `${top}px`;
+}
+
+function fitAllFloatingWindowsToWorkspace() {
+  managedToolWindows.forEach(([toolWindow, titleBar]) =>
+    keepFloatingWindowInWorkspace(toolWindow, titleBar),
+  );
+  document.querySelectorAll(".calc-window").forEach((calculator) =>
+    keepFloatingWindowInWorkspace(
+      calculator,
+      calculator.querySelector(".calc-titlebar"),
+    ),
+  );
+}
+
+const floatingWindowResizeObserver = new ResizeObserver((entries) => {
+  entries.forEach(({ target }) => {
+    const managedEntry = managedToolWindows.find(
+      ([toolWindow]) => toolWindow === target,
+    );
+    keepFloatingWindowInWorkspace(
+      target,
+      managedEntry?.[1] ?? target.querySelector(".calc-titlebar"),
+    );
+  });
+});
+
+function observeFloatingWindow(floatingWindow) {
+  if (!floatingWindow || floatingWindow.dataset.viewportManaged === "true") {
+    return;
+  }
+  floatingWindow.dataset.viewportManaged = "true";
+  floatingWindowResizeObserver.observe(floatingWindow);
+}
+
+managedToolWindows.forEach(([toolWindow]) => observeFloatingWindow(toolWindow));
+
+function refitDraggedFloatingWindow(event) {
+  const titleBar = event.target.closest?.(".window-title-bar, .calc-titlebar");
+  if (!titleBar) return;
+  const floatingWindow = titleBar.closest(".tool-window, .calc-window");
+  if (!floatingWindow) return;
+  requestAnimationFrame(() =>
+    keepFloatingWindowInWorkspace(floatingWindow, titleBar),
+  );
+}
+
+document.addEventListener("pointerup", refitDraggedFloatingWindow);
+document.addEventListener("pointercancel", refitDraggedFloatingWindow);
+
+const floatingWindowOpenObserver = new MutationObserver((records) => {
+  records.forEach((record) => {
+    if (record.type === "attributes" && record.attributeName === "hidden") {
+      const floatingWindow = record.target;
+      if (!floatingWindow.hidden) {
+        requestAnimationFrame(() => {
+          const managedEntry = managedToolWindows.find(
+            ([toolWindow]) => toolWindow === floatingWindow,
+          );
+          keepFloatingWindowInWorkspace(floatingWindow, managedEntry?.[1]);
+        });
+      }
+      return;
+    }
+    record.addedNodes.forEach((node) => {
+      if (!(node instanceof Element)) return;
+      const calculators = node.matches(".calc-window")
+        ? [node]
+        : [...node.querySelectorAll(".calc-window")];
+      calculators.forEach((calculator) => {
+        observeFloatingWindow(calculator);
+        requestAnimationFrame(() =>
+          keepFloatingWindowInWorkspace(
+            calculator,
+            calculator.querySelector(".calc-titlebar"),
+          ),
+        );
+      });
+    });
+  });
+});
+
+managedToolWindows.forEach(([toolWindow]) => {
+  floatingWindowOpenObserver.observe(toolWindow, {
+    attributes: true,
+    attributeFilter: ["hidden"],
+  });
+});
+floatingWindowOpenObserver.observe(document.body, {
+  childList: true,
+  subtree: true,
+});
+
 window.addEventListener("resize", () => {
-  fitViewToCanvas();
-  keepToolWindowInViewport(pointCoordinatesWindow, pointWindowTitleBar);
-  keepToolWindowInViewport(
-    lineCoordinatesWindow,
-    lineCoordinatesWindowTitleBar,
-  );
-  keepToolWindowInViewport(circleRadiusWindow, circleWindowTitleBar);
-  keepToolWindowInViewport(hexagonWindow, hexagonWindowTitleBar);
-  keepToolWindowInViewport(rectangleWindow, rectangleWindowTitleBar);
-  keepToolWindowInViewport(
-    boltHoleCircleWindow,
-    boltHoleCircleWindowTitleBar,
-  );
-  keepToolWindowInViewport(offsetWindow, offsetWindowTitleBar);
-  keepToolWindowInViewport(filletWindow, filletWindowTitleBar);
-  keepToolWindowInViewport(rotateWindow, rotateWindowTitleBar);
-  keepToolWindowInViewport(
-    pointOnEntityWindow,
-    pointOnEntityWindowTitleBar,
-  );
-  keepToolWindowInViewport(aboutWindow, aboutWindowTitleBar);
+  if (isometricViewState.active) {
+    refreshIsometricView();
+  } else {
+    fitViewToCanvas();
+  }
+  fitAllFloatingWindowsToWorkspace();
 });
 
 cadCanvas.addEventListener("mousemove", (event) => {
   const worldPoint = screenToWorld(event);
   cursorX.textContent = `X: ${formatCoordinate(worldPoint.x)}`;
   cursorY.textContent = `Y: ${formatCoordinate(worldPoint.y)}`;
-  if (windowZoomState.active) {
+  if (windowZoomState.active || textPlacementState.active) {
     setSelectionProximityHover(null);
     clearEntityHoverInfo();
+  } else if (isometricViewState.active && updateModelHoverInfo(event.target)) {
+    setSelectionProximityHover(null);
   } else if (selectionState.mode === "chain") {
     updateChainSelectionPreview(worldPoint, event.target);
-  } else if (selectionState.mode === "single") {
+  } else if (selectionState.mode === "single" || isometricViewState.active) {
     const hoveredEntity = getSelectionHitCandidates(worldPoint, event.target)[0]
       ?.entity;
     const hoveredEntityId = hoveredEntity?.id ?? null;
@@ -10997,6 +18554,11 @@ cadCanvas.addEventListener("mousemove", (event) => {
     lineSketchState.previewWorld = worldPoint;
     renderToolPreview();
   }
+
+  if (textPlacementState.active) {
+    textPlacementState.previewWorld = worldPoint;
+    renderToolPreview();
+  }
 });
 
 cadCanvas.addEventListener("mouseleave", () => {
@@ -11004,6 +18566,8 @@ cadCanvas.addEventListener("mouseleave", () => {
   cursorY.textContent = "Y: ----";
   clearEntityHoverInfo();
   setSelectionProximityHover(null);
+  modelSelectionState.hoveredSolidId = null;
+  modelSelectionState.hoveredFaceIndex = null;
 
   if (selectionState.mode === "chain") {
     chainSelectionState.candidateEntityId = null;
@@ -11020,7 +18584,18 @@ cadCanvas.addEventListener("mouseleave", () => {
     lineSketchState.previewWorld = null;
     renderToolPreview();
   }
+
+  if (textPlacementState.active) {
+    textPlacementState.previewWorld = null;
+    renderToolPreview();
+  }
 });
 
 applyApplicationIdentity();
+updateUnitsUi();
+setWorkspaceMode("2d");
+renderLayerMenu();
+document
+  .querySelectorAll(".menu-item, .submenu-item")
+  .forEach(enableDelayedMenuClose);
 fitViewToCanvas();
