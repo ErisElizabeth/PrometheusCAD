@@ -1,0 +1,15 @@
+* text=auto
+*.js text eol=lf
+*.cjs text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.txt text eol=lf
+index.html -text whitespace=cr-at-eol
+style.css -text
+assets/OFL.txt -text
+vendor/opencascade/dist/* -text
+vendor/opencascade/LICENSE -text
+vendor/opencascade/package.json -text
+*.wasm binary

@@ -1,0 +1,325 @@
+{
+  "startedAt": "2026-11-17T15:51:41.044Z",
+  "checks": [
+    {
+      "name": "2d-startup-does-not-initialize-kernel",
+      "status": "pass",
+      "detail": {
+        "status": "idle",
+        "lastError": "",
+        "assets": 0,
+        "displayCaches": 0,
+        "pending": 0,
+        "assetBytes": 0
+      }
+    },
+    {
+      "name": "application-box-default-origin-0",
+      "status": "pass",
+      "detail": {
+        "id": 1,
+        "volume": 1.9999999999999996
+      }
+    },
+    {
+      "name": "application-box-default-origin-5",
+      "status": "pass",
+      "detail": {
+        "id": 2,
+        "volume": 1.747739697749631
+      }
+    },
+    {
+      "name": "application-box-default-origin--5",
+      "status": "pass",
+      "detail": {
+        "id": 3,
+        "volume": 2.2726716789051746
+      }
+    },
+    {
+      "name": "application-box-default-origin-15",
+      "status": "pass",
+      "detail": {
+        "id": 4,
+        "volume": 1.291881449005953
+      }
+    },
+    {
+      "name": "application-box-default-origin--15",
+      "status": "pass",
+      "detail": {
+        "id": 5,
+        "volume": 2.89957660359269
+      }
+    },
+    {
+      "name": "application-box-default-offset-0",
+      "status": "pass",
+      "detail": {
+        "id": 6,
+        "volume": 1.9999999999999996
+      }
+    },
+    {
+      "name": "application-box-default-offset-5",
+      "status": "pass",
+      "detail": {
+        "id": 7,
+        "volume": 1.7477396977496311
+      }
+    },
+    {
+      "name": "application-box-default-offset--5",
+      "status": "pass",
+      "detail": {
+        "id": 8,
+        "volume": 2.2726716789051755
+      }
+    },
+    {
+      "name": "application-box-default-offset-15",
+      "status": "pass",
+      "detail": {
+        "id": 9,
+        "volume": 1.2918814490059527
+      }
+    },
+    {
+      "name": "application-box-default-offset--15",
+      "status": "pass",
+      "detail": {
+        "id": 10,
+        "volume": 2.89957660359269
+      }
+    },
+    {
+      "name": "application-box-asymmetric-origin-0",
+      "status": "pass",
+      "detail": {
+        "id": 11,
+        "volume": 6
+      }
+    },
+    {
+      "name": "application-box-asymmetric-origin-5",
+      "status": "pass",
+      "detail": {
+        "id": 12,
+        "volume": 5.70903128536313
+      }
+    },
+    {
+      "name": "application-box-asymmetric-origin--5",
+      "status": "pass",
+      "detail": {
+        "id": 13,
+        "volume": 6.299579764163117
+      }
+    },
+    {
+      "name": "application-box-asymmetric-origin-15",
+      "status": "pass",
+      "detail": {
+        "id": 14,
+        "volume": 5.136057158514987
+      }
+    },
+    {
+      "name": "application-box-asymmetric-origin--15",
+      "status": "pass",
+      "detail": {
+        "id": 15,
+        "volume": 6.944714207425065
+      }
+    },
+    {
+      "name": "application-box-asymmetric-offset-0",
+      "status": "pass",
+      "detail": {
+        "id": 16,
+        "volume": 6
+      }
+    },
+    {
+      "name": "application-box-asymmetric-offset-5",
+      "status": "pass",
+      "detail": {
+        "id": 17,
+        "volume": 5.70903128536313
+      }
+    },
+    {
+      "name": "application-box-asymmetric-offset--5",
+      "status": "pass",
+      "detail": {
+        "id": 18,
+        "volume": 6.299579764163118
+      }
+    },
+    {
+      "name": "application-box-asymmetric-offset-15",
+      "status": "pass",
+      "detail": {
+        "id": 19,
+        "volume": 5.136057158514987
+      }
+    },
+    {
+      "name": "application-box-asymmetric-offset--15",
+      "status": "pass",
+      "detail": {
+        "id": 20,
+        "volume": 6.944714207425065
+      }
+    },
+    {
+      "name": "svg-face-ownership-selection-and-geometric-edges",
+      "status": "pass",
+      "detail": {
+        "faces": [
+          {
+            "id": "top",
+            "triangles": 2,
+            "stroke": "none"
+          },
+          {
+            "id": "front",
+            "triangles": 2,
+            "stroke": "none"
+          },
+          {
+            "id": "left",
+            "triangles": 2,
+            "stroke": "none"
+          }
+        ],
+        "edges": 12,
+        "selected": {
+          "solidId": 1,
+          "faceIndex": 1,
+          "faceId": "top"
+        }
+      }
+    },
+    {
+      "name": "actual-svg-pointer-picks-whole-face",
+      "status": "pass",
+      "detail": {
+        "solidId": 1,
+        "faceIndex": 1,
+        "faceId": "top"
+      }
+    },
+    {
+      "name": "transform-commands-apply-once-and-undo-redo",
+      "status": "pass",
+      "detail": {
+        "error": 0,
+        "assetUnchanged": true,
+        "matrixPreserved": true,
+        "det": -1,
+        "historyHasBrep": false
+      }
+    },
+    {
+      "name": "clipboard-and-history-share-immutable-exact-assets",
+      "status": "fail",
+      "error": "Error: page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at eval (eval at evaluate (:370:30), <anonymous>:5:37)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at eval (eval at evaluate (:370:30), <anonymous>:5:37)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:65:23\n    at check (C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:8:54)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:64:8"
+    },
+    {
+      "name": "project-download-contains-brep-and-no-display-cache",
+      "status": "fail",
+      "error": "Error: page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at saveNativeProject (http://127.0.0.1:52253/main.js:18659:35)\n    at eval (eval at evaluate (:370:30), <anonymous>:1:5)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at saveNativeProject (http://127.0.0.1:52253/main.js:18659:35)\n    at eval (eval at evaluate (:370:30), <anonymous>:1:5)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:75:71\n    at check (C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:8:54)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:74:8"
+    },
+    {
+      "name": "closed-page-fresh-worker-project-reopen-and-subsequent-edit",
+      "status": "fail",
+      "error": "Error: page.evaluate: ReferenceError: PrometheusProject is not defined\n    at openNativeProject (http://127.0.0.1:52253/main.js:18640:21)\n    at eval (eval at evaluate (:370:30), <anonymous>:2:25)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: ReferenceError: PrometheusProject is not defined\n    at openNativeProject (http://127.0.0.1:52253/main.js:18640:21)\n    at eval (eval at evaluate (:370:30), <anonymous>:2:25)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:82:23\n    at async check (C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:8:48)\n    at async file:///C:/Users/S.%20Jones/Desktop/PrometheusCAD-Integration/tests/run.mjs:79:2"
+    },
+    {
+      "name": "invalid-open-preserves-document-history-and-assets",
+      "status": "fail",
+      "error": "Error: page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at eval (eval at evaluate (:370:30), <anonymous>:2:34)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at eval (eval at evaluate (:370:30), <anonymous>:2:34)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:92:23\n    at check (C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:8:54)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:91:8"
+    },
+    {
+      "name": "legacy-snapshot-load-without-automatic-conversion",
+      "status": "fail",
+      "error": "Error: page.evaluate: ReferenceError: PrometheusProject is not defined\n    at openNativeProject (http://127.0.0.1:52253/main.js:18640:21)\n    at eval (eval at evaluate (:370:30), <anonymous>:3:12)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: ReferenceError: PrometheusProject is not defined\n    at openNativeProject (http://127.0.0.1:52253/main.js:18640:21)\n    at eval (eval at evaluate (:370:30), <anonymous>:3:12)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:101:23\n    at check (C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:8:54)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:99:8"
+    },
+    {
+      "name": "invalid-and-tiny-box-are-atomic",
+      "status": "pass",
+      "detail": {
+        "tinyError": "Error: Box geometry unsupported at edge:e5: MakeEdge e5 failed (error 3 BRepBuilderAPI_DifferentPointsOnClosedCurve). Requested dimensions were not changed.",
+        "first": true,
+        "second": true,
+        "historySame": true
+      }
+    },
+    {
+      "name": "pending-box-cancel-and-document-change-do-not-commit",
+      "status": "pass",
+      "detail": {
+        "unchanged": true,
+        "disabled": false
+      }
+    },
+    {
+      "name": "kernel-initialization-failure-keeps-2d-and-document-working",
+      "status": "fail",
+      "error": "Error: page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at eval (eval at evaluate (:370:30), <anonymous>:4:20)\n    at async <anonymous>:381:23",
+      "stack": "page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at eval (eval at evaluate (:370:30), <anonymous>:4:20)\n    at async <anonymous>:381:23\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:125:30\n    at async check (C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:8:48)\n    at async file:///C:/Users/S.%20Jones/Desktop/PrometheusCAD-Integration/tests/run.mjs:122:2"
+    },
+    {
+      "name": "browser-runtime-errors",
+      "status": "pass",
+      "detail": []
+    }
+  ],
+  "failures": [
+    {
+      "name": "clipboard-and-history-share-immutable-exact-assets",
+      "status": "fail",
+      "error": "Error: page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at eval (eval at evaluate (:370:30), <anonymous>:5:37)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at eval (eval at evaluate (:370:30), <anonymous>:5:37)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:65:23\n    at check (C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:8:54)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:64:8"
+    },
+    {
+      "name": "project-download-contains-brep-and-no-display-cache",
+      "status": "fail",
+      "error": "Error: page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at saveNativeProject (http://127.0.0.1:52253/main.js:18659:35)\n    at eval (eval at evaluate (:370:30), <anonymous>:1:5)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at saveNativeProject (http://127.0.0.1:52253/main.js:18659:35)\n    at eval (eval at evaluate (:370:30), <anonymous>:1:5)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:75:71\n    at check (C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:8:54)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:74:8"
+    },
+    {
+      "name": "closed-page-fresh-worker-project-reopen-and-subsequent-edit",
+      "status": "fail",
+      "error": "Error: page.evaluate: ReferenceError: PrometheusProject is not defined\n    at openNativeProject (http://127.0.0.1:52253/main.js:18640:21)\n    at eval (eval at evaluate (:370:30), <anonymous>:2:25)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: ReferenceError: PrometheusProject is not defined\n    at openNativeProject (http://127.0.0.1:52253/main.js:18640:21)\n    at eval (eval at evaluate (:370:30), <anonymous>:2:25)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:82:23\n    at async check (C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:8:48)\n    at async file:///C:/Users/S.%20Jones/Desktop/PrometheusCAD-Integration/tests/run.mjs:79:2"
+    },
+    {
+      "name": "invalid-open-preserves-document-history-and-assets",
+      "status": "fail",
+      "error": "Error: page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at eval (eval at evaluate (:370:30), <anonymous>:2:34)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at eval (eval at evaluate (:370:30), <anonymous>:2:34)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:92:23\n    at check (C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:8:54)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:91:8"
+    },
+    {
+      "name": "legacy-snapshot-load-without-automatic-conversion",
+      "status": "fail",
+      "error": "Error: page.evaluate: ReferenceError: PrometheusProject is not defined\n    at openNativeProject (http://127.0.0.1:52253/main.js:18640:21)\n    at eval (eval at evaluate (:370:30), <anonymous>:3:12)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+      "stack": "page.evaluate: ReferenceError: PrometheusProject is not defined\n    at openNativeProject (http://127.0.0.1:52253/main.js:18640:21)\n    at eval (eval at evaluate (:370:30), <anonymous>:3:12)\n    at UtilityScript.evaluate (<anonymous>:372:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:101:23\n    at check (C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:8:54)\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:99:8"
+    },
+    {
+      "name": "kernel-initialization-failure-keeps-2d-and-document-working",
+      "status": "fail",
+      "error": "Error: page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at eval (eval at evaluate (:370:30), <anonymous>:4:20)\n    at async <anonymous>:381:23",
+      "stack": "page.evaluate: ReferenceError: PrometheusProject is not defined\n    at serializeNativeProject (http://127.0.0.1:52253/main.js:18634:3)\n    at eval (eval at evaluate (:370:30), <anonymous>:4:20)\n    at async <anonymous>:381:23\n    at C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:125:30\n    at async check (C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\tests\\run.mjs:8:48)\n    at async file:///C:/Users/S.%20Jones/Desktop/PrometheusCAD-Integration/tests/run.mjs:122:2"
+    }
+  ],
+  "limitations": [],
+  "finishedAt": "2026-11-17T15:51:50.275Z"
+}

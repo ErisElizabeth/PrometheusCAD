@@ -1,5 +1,6 @@
 // Adapted from the pinned isolated feasibility prototype; no document/DOM imports.
 export const KERNEL_VERSION='2.0.0-beta.b5ff984';
+const DISPLAY_DEFLECTION_INCHES = 0.0005;
 const rounded=n=>Math.abs(n)<1e-8?0:Number(n.toFixed(8));
 const enumValue=e=>e?.value??e;
 const xyz=p=>[p.X(),p.Y(),p.Z()];
@@ -226,8 +227,8 @@ const lifetime={created:0,deleted:0,cleanupErrors:[]};
     assert(validation.valid&&validation.volume>0,'Kernel rejected Box validity or volume');
     assert(validation.counts.face===6&&validation.counts.edge===12&&validation.counts.vertex===8&&validation.counts.solid===1,'Kernel Box topology differs from the requested solid');
     assert(Math.abs(validation.volume-g.analyticVolume)<=Math.max(1e-12,Math.abs(g.analyticVolume)*1e-9),'Kernel Box volume exceeds comparison tolerance');
-    const asset={schemaVersion:1,backend:'opencascade.js',kernelVersion:KERNEL_VERSION,canonicalUnits:'inch',brep:writeBrep(built.shape,own),naming:names};
-    return {asset,validation,names,mesh:mesh(built.shape,names,.003,own)};
+    const asset={schemaVersion:1,backend:'opencascade.js',kernelVersion:KERNEL_VERSION,canonicalUnits:'inch',definition:JSON.parse(JSON.stringify(record.definition)),brep:writeBrep(built.shape,own),naming:names};
+    return {asset,validation,names,mesh:mesh(built.shape,names,DISPLAY_DEFLECTION_INCHES,own)};
   });}
   function loadAsset(asset){return scope(own=>{
     assert(asset?.schemaVersion===1&&asset.backend==='opencascade.js'&&asset.kernelVersion===KERNEL_VERSION&&asset.canonicalUnits==='inch','Unsupported geometry asset version, backend, kernel, or units');
@@ -236,7 +237,7 @@ const lifetime={created:0,deleted:0,cleanupErrors:[]};
     const shape=readBrep(asset.brep,own),validation=validate(shape,own);
     assert(validation.valid&&validation.volume>0&&validation.counts.solid===1,'Loaded B-rep is not one valid positive-volume solid');
     const names=restoreNames(shape,asset.naming,own);
-    return {validation,names,mesh:mesh(shape,names,.003,own)};
+    return {validation,names,mesh:mesh(shape,names,DISPLAY_DEFLECTION_INCHES,own)};
   });}
   return {createBox,loadAsset,lifetime};
 }

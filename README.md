@@ -2,7 +2,7 @@
 
 **You draw. It solves.**
 
-**Current version: V0.1.49 Alpha Dev Build**
+**Current version: V0.1.50 Internal Integration Build**
 
 PrometheusCAD is a portable 2D drawing, emerging 3D modeling, and shop-math utility for machinists, inspectors, hobbyists, and anyone who needs quick geometry without CAM bloat.
 
@@ -1555,3 +1555,37 @@ Changes made since V0.1.48:
 - Kept the right-handed Z-up coordinate convention established in V0.1.48 unchanged: top view remains +X right, +Y up, and +Z toward the viewer.
 - Kept the trihedron's positive-axis endpoints, model coordinates, projection basis, orbit pivot, pitch limits, panning, and zooming unchanged.
 - Updated the application metadata, browser title, header, About window, runtime identity, and DXF producer version to V0.1.49.
+
+
+## V0.1.50 internal OpenCascade integration branch
+
+New Box commands use the locally packaged OpenCascade.js kernel through an asynchronous Web Worker. Zero and signed draft preserve the bottom-center placement convention. Legacy solids remain readable. The existing SVG workspace renders face-owned tessellation and actual geometric edges. File Open, Save and Save As now support .pcad JSON/B-rep projects; undo/redo and clipboard use shared exact-geometry references.
+
+This is an internal development build, with unresolved public-release requirements. See [kernel architecture and limits](docs/KERNEL_INTEGRATION.md), [native format](docs/PROJECT_FORMAT.md), and [third-party notices](THIRD_PARTY_NOTICES.md).
+
+### Develop without a bundler
+
+From this integration repository:
+
+```powershell
+node tools/server.mjs
+```
+
+Open http://127.0.0.1:8765/?dev=1. Edit HTML/CSS/JavaScript and reload as before. Live Server also works. The development query bypasses offline caches. No build step is needed for ordinary editing.
+
+For offline use, run `npm run build:assets` after runtime edits and open the URL without ?dev=1. Allow the static cache to finish (body data-offline becomes ready). HTTPS or localhost is required for service workers. Updates wait for previous document tabs to close; no active CAD document is automatically reloaded. The cache contains static assets only. Quota failures leave the online application working.
+
+Direct browser file:// launch retains 2D, but its module worker cannot run the new kernel Box command under the tested browser restrictions. Use the cached browser application, a local static server, or the portable desktop build for kernel modeling.
+
+### Tests and portable desktop
+
+```powershell
+npm test
+npm run portable
+```
+
+Tests use installed Chrome (override CHROME_PATH if needed), copied local pinned tooling, and integration-local profiles/results. They cover legacy behavior, kernel geometry, real application workflows, offline browser, and portable Electron. Raw results go to tests/results; reviewed snapshots are in tests/evidence.
+
+Run build/PrometheusCAD-Portable/PrometheusCAD.exe with its entire folder intact. It includes Electron and all assets and needs no network or installer. Settings/cache live beside the executable. Native File Open/Save uses .pcad files.
+
+To reproduce development tools, set electron_config_cache to this repository's .cache/electron, then run npm ci. npm's repository-local configuration uses .cache/npm. This optional setup downloads pinned tools; it is unnecessary for the delivered portable application.

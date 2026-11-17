@@ -12,7 +12,7 @@
 // Any SVG weirdness must be handled internally.
 
 const APP_NAME = "PrometheusCAD";
-const APP_VERSION = "0.1.49";
+const APP_VERSION = "0.1.50";
 const MILLIMETERS_PER_INCH = 25.4;
 
 // Menu timing controls, in milliseconds. The longer delay applies when the
@@ -745,6 +745,8 @@ const UNIT_DISPLAY_NAMES = {
   metric: "Metric",
 };
 
+let documentRevision = 0;
+const boxOperation = { token: 0 };
 const HISTORY_LIMIT = 100;
 const historyState = {
   undoStack: [],
@@ -1867,6 +1869,7 @@ function transformSolidVertex(solid, vertex) {
 }
 
 function getSolidLocalVertices(solid) {
+  if (PrometheusModeling.geometryId(solid)) return PrometheusModeling.getDisplay(solid)?.vertices ?? [];
   const vertices = solid.topology?.vertices ?? solid.geometry?.vertices;
   return Array.isArray(vertices) ? vertices : [];
 }
@@ -2067,6 +2070,7 @@ function buildBoxSolid({
 }
 
 function getSolidFaceRecords(solid) {
+  if (PrometheusModeling.geometryId(solid)) return PrometheusModeling.getDisplay(solid)?.faces ?? [];
   const localVertices = getSolidLocalVertices(solid);
   const vertexIndexById = new Map(
     localVertices.map((vertex, index) => [vertex.id ?? index, index]),
@@ -4030,6 +4034,8 @@ function resetBoxInputs() {
 }
 
 function activateBox() {
+  boxOperation.token += 1;
+  boxCreateButton.disabled = false;
   modelMenuItem.classList.add("is-dismissed");
   if (!is3dWorkspace()) {
     commandStatus.textContent = "Box is available in the 3D workspace.";
@@ -4054,6 +4060,7 @@ function activateBox() {
 }
 
 function closeBoxWindow(statusMessage = "Box canceled.") {
+  boxOperation.token += 1;
   if (boxWindow.classList.contains("is-maximized")) {
     toggleBoxWindowMaximized();
   }
@@ -4153,7 +4160,8 @@ function resolveBoxInput(input, label, { positive = false } = {}) {
   });
 }
 
-function createBoxFromInputs() {
+async function createBoxFromInputs() {
+  if (boxCreateButton.disabled) return;
   const inputSpecifications = [
     ["x", boxXInput, "X", false],
     ["y", boxYInput, "Y", false],
@@ -4187,6 +4195,32 @@ function createBoxFromInputs() {
     boxToolMessage.dataset.arithmeticError = "true";
     commandStatus.textContent = `Box: ${error.message}`;
     return;
+  }
+
+  const token = ++boxOperation.token, revision = documentRevision, layerId = documentModel.currentLayerId;
+  boxCreateButton.disabled = true;
+  boxToolMessage.textContent = "Building Box geometry…";
+  try {
+    solid = await PrometheusModeling.buildBox(solid);
+    if (token !== boxOperation.token || boxWindow.hidden || !is3dWorkspace() ||
+        revision !== documentRevision || layerId !== documentModel.currentLayerId || !isCurrentLayerEditable()) {
+      if (token === boxOperation.token && !boxWindow.hidden) {
+        boxToolMessage.textContent = "Box canceled because the document or active command changed.";
+        commandStatus.textContent = boxToolMessage.textContent;
+      }
+      retainReferencedGeometry();
+      return;
+    }
+    solid.id = documentModel.model3d.nextSolidId;
+  } catch (error) {
+    if (token === boxOperation.token) {
+      boxToolMessage.textContent = error.message;
+      boxToolMessage.dataset.arithmeticError = "true";
+      commandStatus.textContent = "Box: " + error.message;
+    }
+    return;
+  } finally {
+    if (token === boxOperation.token) boxCreateButton.disabled = false;
   }
 
   recordDocumentChange(`Create Box ${solid.id}`);
@@ -6675,78 +6709,57 @@ function getSolidDescription(solid) {
 }
 
 function renderModelSolids() {
-  modelLayer.innerHTML = "";
+  modelLayer.replaceChildren();
   modelLayer.toggleAttribute("hidden", !isometricViewState.active);
   if (!isometricViewState.active) return;
-
-  const faceRecords = [];
-  documentModel.model3d.solids.forEach((solid) => {
-    if (!isEntityLayerVisible(solid)) return;
+  const faceRecords = [], edgeRecords = [];
+  for (const solid of documentModel.model3d.solids) {
+    if (!isEntityLayerVisible(solid)) continue;
+    const reverse = getMatrix3Determinant(normalizeSolidTransform(solid).matrix) < 0;
+    if (PrometheusModeling.geometryId(solid)) {
+      const display = PrometheusModeling.getDisplay(solid);
+      if (!display) continue;
+      const {yaw, pitch} = isometricViewState;
+      const converted = PrometheusSolidSvg.projectMesh(solid, display, {
+        transform: transformSolidVertex, project: projectWorldPointToIsometric, reverse,
+        viewDirection: [-Math.sin(yaw)*Math.cos(pitch), -Math.cos(yaw)*Math.cos(pitch), Math.sin(pitch)],
+      });
+      faceRecords.push(...converted.faces); edgeRecords.push(...converted.edges);
+      continue;
+    }
     const vertices = getSolidWorldVertices(solid);
-    const faces = getSolidFaceRecords(solid);
-    if (!vertices.length || !Array.isArray(faces)) return;
-    const reversesWinding =
-      getMatrix3Determinant(normalizeSolidTransform(solid).matrix) < 0;
-    faces.forEach((face) => {
-      const faceIndices = reversesWinding
-        ? [...face.vertexIndices].reverse()
-        : face.vertexIndices;
-      if (
-        !Array.isArray(faceIndices) ||
-        faceIndices.length < 3 ||
-        faceIndices.some(
-          (vertexIndex) =>
-            !Number.isInteger(vertexIndex) || !vertices[vertexIndex],
-        )
-      ) {
-        return;
-      }
-      const projected = faceIndices.map((vertexIndex) =>
-        projectWorldPointToIsometric(vertices[vertexIndex]),
-      );
-      faceRecords.push({
-        solid,
-        faceId: face.id,
-        faceName: face.name,
-        faceIndex: face.faceIndex,
-        projected,
-        depth:
-          projected.reduce((sum, point) => sum + point.depth, 0) /
-          projected.length,
-      });
+    for (const face of getSolidFaceRecords(solid)) {
+      const indices = reverse ? [...face.vertexIndices].reverse() : face.vertexIndices;
+      if (!Array.isArray(indices) || indices.length < 3 || indices.some(i => !Number.isInteger(i) || !vertices[i])) continue;
+      const projected = indices.map(i => projectWorldPointToIsometric(vertices[i]));
+      faceRecords.push({solid, faceId:face.id, faceName:face.name, faceIndex:face.faceIndex,
+        projected, depth:projected.reduce((sum,p)=>sum+p.depth,0)/projected.length});
+    }
+  }
+  faceRecords.sort((a,b)=>a.depth-b.depth).forEach(({solid,faceId,faceName,faceIndex,projected,paths}) => {
+    const selected = modelSelectionState.selectedSolidIds.has(solid.id);
+    const selectedFace = modelSelectionState.selectedFace;
+    const isSelectedFace = selectedFace?.solidId === solid.id &&
+      (selectedFace.faceId ? selectedFace.faceId === faceId : selectedFace.faceIndex === faceIndex);
+    const element = createSvgElement(paths ? "path" : "polygon", {
+      ...(paths ? {d:paths.map(points=>"M"+points.map(p=>p.x+","+p.y).join("L")+"Z").join(""),
+        "data-triangle-count":paths.length} : {points:projected.map(p=>p.x+","+p.y).join(" ")}),
+      class:["solid-face",paths?"kernel-face":"",selected?"is-selected":"",isSelectedFace?"is-selected-face":""].filter(Boolean).join(" "),
+      "data-solid-id":solid.id,"data-face-id":faceId,"data-face-index":faceIndex,"data-layer-id":getEntityLayerId(solid),
     });
+    const title=createSvgElement("title",{});
+    title.textContent=getSolidDescription(solid)+", "+String(faceName).toLowerCase()+" face";
+    element.append(title);modelLayer.append(element);
   });
-
-  faceRecords
-    .sort((first, second) => first.depth - second.depth)
-    .forEach(({ solid, faceId, faceName, faceIndex, projected }) => {
-      const isSelected = modelSelectionState.selectedSolidIds.has(solid.id);
-      const isSelectedFace =
-        modelSelectionState.selectedFace?.solidId === solid.id &&
-        (modelSelectionState.selectedFace?.faceId === faceId ||
-          modelSelectionState.selectedFace?.faceIndex === faceIndex);
-      const polygon = createSvgElement("polygon", {
-        points: projected.map((point) => `${point.x},${point.y}`).join(" "),
-        class: [
-          "solid-face",
-          isSelected ? "is-selected" : "",
-          isSelectedFace ? "is-selected-face" : "",
-        ]
-          .filter(Boolean)
-          .join(" "),
-        "data-solid-id": solid.id,
-        "data-face-index": faceIndex,
-        "data-face-id": faceId,
-        "data-layer-id": getEntityLayerId(solid),
-      });
-      const title = createSvgElement("title", {});
-      title.textContent = `${getSolidDescription(solid)}, ${faceName.toLowerCase()} face`;
-      polygon.appendChild(title);
-      modelLayer.appendChild(polygon);
-    });
+  for (const {solid,id,points} of edgeRecords) modelLayer.append(createSvgElement("polyline",{
+    points:points.map(p=>p.x+","+p.y).join(" "),
+    class:"solid-edge"+(modelSelectionState.selectedSolidIds.has(solid.id)?" is-selected":""),
+    "data-solid-id":solid.id,"data-edge-id":id,
+  }));
 }
 
 function renderEntities() {
+  retainReferencedGeometry();
   documentModel.entities.forEach((entity) => {
     if (!Number.isInteger(entity.layerId)) entity.layerId = 0;
   });
@@ -9013,6 +9026,13 @@ function getEntityIntersections(firstEntity, secondEntity) {
   );
 }
 
+function retainReferencedGeometry() {
+  const referenced = [...documentModel.model3d.solids, ...clipboardState.solids,
+    ...historyState.undoStack.flatMap(entry => entry.snapshot.model3d?.solids ?? []),
+    ...historyState.redoStack.flatMap(entry => entry.snapshot.model3d?.solids ?? [])];
+  PrometheusModeling.retain(referenced, documentModel.model3d.solids);
+}
+
 function captureDocumentSnapshot() {
   return {
     entities: documentModel.entities.map((entity) => ({ ...entity })),
@@ -9025,6 +9045,7 @@ function captureDocumentSnapshot() {
 }
 
 function recordDocumentChange(label) {
+  documentRevision += 1;
   historyState.undoStack.push({
     label,
     snapshot: captureDocumentSnapshot(),
@@ -9039,6 +9060,8 @@ function recordDocumentChange(label) {
 }
 
 function restoreDocumentSnapshot(snapshot) {
+  documentRevision += 1;
+  boxOperation.token += 1;
   documentModel.entities = snapshot.entities.map((entity) => ({
     ...entity,
     layerId: Number.isInteger(entity.layerId) ? entity.layerId : 0,
@@ -18599,3 +18622,93 @@ document
   .querySelectorAll(".menu-item, .submenu-item")
   .forEach(enableDelayedMenuClose);
 fitViewToCanvas();
+
+PrometheusModeling.setDisplayListener(() => {
+  renderEntities();
+  const failed = documentModel.model3d.solids.find(solid => PrometheusModeling.getError(solid));
+  if (failed) commandStatus.textContent = "Solid " + failed.id + ": " + PrometheusModeling.getError(failed);
+});
+
+let projectOpenSequence = 0;
+let lastProjectOperation = Promise.resolve();
+let nativeProjectName = "PrometheusCAD.pcad";
+
+function serializeNativeProject() {
+  return PrometheusProject.encode(captureDocumentSnapshot(), documentModel.units,
+    PrometheusModeling.exportAssets(documentModel.model3d.solids));
+}
+
+async function openNativeProject(input) {
+  closeBoxWindow(null);
+  const sequence = ++projectOpenSequence, revision = documentRevision;
+  const candidate = PrometheusProject.normalize(typeof input === "string" ? JSON.parse(input) : input);
+  const staged = await PrometheusModeling.stage(candidate.geometryAssets, candidate.document.model3d.solids);
+  if (sequence !== projectOpenSequence || revision !== documentRevision)
+    throw Error("Project open canceled because the document changed.");
+  // All asynchronous validation has succeeded. Publish exact assets and records together.
+  boxOperation.token += 1;
+  convertLengthInputValues(documentModel.units, candidate.units);
+  documentModel.units = candidate.units;
+  updateUnitsUi();
+  PrometheusModeling.commitStage(staged);
+  historyState.undoStack = [];
+  historyState.redoStack = [];
+  restoreDocumentSnapshot(candidate.document);
+  commandStatus.textContent = "Project opened.";
+  return { solids: documentModel.model3d.solids.length, entities: documentModel.entities.length };
+}
+
+async function saveNativeProject(saveAs = false) {
+  dismissFileMenu();
+  const contents = JSON.stringify(serializeNativeProject(), null, 2);
+  if (window.PrometheusFiles) {
+    const result = await window.PrometheusFiles.save({contents, saveAs, suggestedName: nativeProjectName});
+    if (result.canceled) return;
+    nativeProjectName = result.name;
+    commandStatus.textContent = "Project saved.";
+    return result;
+  }
+  const url = URL.createObjectURL(new Blob([contents], {type:"application/json"}));
+  const link = document.createElement("a");
+  link.href = url; link.download = nativeProjectName; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  commandStatus.textContent = "Project downloaded.";
+}
+
+async function chooseNativeProject() {
+  dismissFileMenu();
+  if (!window.PrometheusFiles) {
+    document.querySelector("#projectFileInput").click();
+    return;
+  }
+  const result = await window.PrometheusFiles.open();
+  if (result.canceled) return;
+  await openNativeProject(result.contents);
+  await window.PrometheusFiles.acceptOpen(result.token);
+  nativeProjectName = result.name;
+}
+
+function runProjectOperation(operation) {
+  lastProjectOperation = operation().catch(error => {
+    commandStatus.textContent = "Project: " + error.message;
+    return {error:error.message};
+  });
+  return lastProjectOperation;
+}
+document.querySelector("#openProjectMenu").addEventListener("click", () => runProjectOperation(chooseNativeProject));
+document.querySelector("#saveProjectMenu").addEventListener("click", () => runProjectOperation(() => saveNativeProject(false)));
+document.querySelector("#saveAsProjectMenu").addEventListener("click", () => runProjectOperation(() => saveNativeProject(true)));
+document.querySelector("#projectFileInput").addEventListener("change", event => {
+  const file = event.target.files[0];
+  if (!file) return;
+  runProjectOperation(async () => { await openNativeProject(await file.text()); nativeProjectName = file.name; })
+    .finally(() => { event.target.value = ""; });
+});
+document.addEventListener("keydown", event => {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+  if (event.key.toLowerCase() === "s") {
+    event.preventDefault();runProjectOperation(() => saveNativeProject(event.shiftKey));
+  } else if (event.key.toLowerCase() === "o") {
+    event.preventDefault();runProjectOperation(chooseNativeProject);
+  }
+});

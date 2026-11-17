@@ -8,8 +8,8 @@
       name="description"
       content="PrometheusCAD is a portable 2D CAD and shop-math utility for machinists."
     />
-    <meta name="version" content="0.1.49" />
-    <title>PrometheusCAD V0.1.49</title>
+    <meta name="version" content="0.1.50" />
+    <title>PrometheusCAD V0.1.50</title>
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="Calculator/Calculator.css" />
   </head>
@@ -17,7 +17,7 @@
   <body data-theme="granite">
     <header class="app-header">
       <div class="brand-block">
-        <h1>PrometheusCAD <span class="app-version">V0.1.49</span></h1>
+        <h1>PrometheusCAD <span class="app-version">V0.1.50</span></h1>
         <p>You draw. It solves.</p>
       </div>
     </header>
@@ -27,9 +27,9 @@
         <button type="button" class="menu-button">File</button>
         <div class="dropdown-menu">
           <button type="button">New</button>
-          <button type="button">Open</button>
-          <button type="button">Save</button>
-          <button type="button">Save As</button>
+          <button type="button" id="openProjectMenu">Open</button>
+          <button type="button" id="saveProjectMenu">Save</button>
+          <button type="button" id="saveAsProjectMenu">Save As</button>
           <button type="button" id="importMenu" disabled>Import</button>
           <button type="button" id="exportDxfMenu">Export</button>
         </div>
@@ -2440,7 +2440,7 @@
 
       <div class="tool-window-body">
         <div class="about-content">
-          <p id="aboutVersion">PrometheusCAD V0.1.49</p>
+          <p id="aboutVersion">PrometheusCAD V0.1.50</p>
           <p>
             2026
             <a
@@ -2570,6 +2570,11 @@
     </footer>
 
     <script src="Calculator/Calculator.js"></script>
+    <input id="projectFileInput" type="file" accept=".pcad,.json,application/json" hidden />
+    <script src="modeling/adapter.js"></script>
+    <script src="modeling/svg.js"></script>
+    <script src="project.js"></script>
     <script src="main.js"></script>
+    <script src="offline.js"></script>
   </body>
 </html>

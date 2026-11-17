@@ -11,8 +11,7 @@
     return JSON.stringify(value);
   }
   async function assetId(asset){
-    const bytes=new TextEncoder().encode(canonical(asset));
-    const hash=await crypto.subtle.digest('SHA-256',bytes);
+    const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(asset)));
     return 'sha256:'+Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
   }
   function stop(error){
@@ -75,21 +74,26 @@
   async function stage(input,solids){
     const staged=new Map();
     for(const solid of solids){
-      const id=geometryId(solid);if(!id||staged.has(id))continue;
+      const id=geometryId(solid);if(!id)continue;
       const asset=input?.[id];if(!asset)throw Error('Project is missing B-rep asset '+id);
       if(await assetId(asset)!==id)throw Error('B-rep asset checksum mismatch');
+      if(asset.definition&&canonical(asset.definition)!==canonical(solid.definition))throw Error('Box definition differs from its exact geometry asset');
+      if(staged.has(id))continue;
       const result=await rpc('load',asset);
       staged.set(id,{asset:freeze(clone(asset)),display:displayData(result)});
     }
     return staged;
   }
   function commitStage(staged){for(const [id,item]of staged){assets.set(id,item.asset);displays.set(id,item.display);errors.delete(id);}}
-  function retain(solids){
+  function retain(solids,current=solids){
     const used=new Set(solids.map(geometryId).filter(Boolean));
-    for(const map of [assets,displays,errors])for(const id of map.keys())if(!used.has(id))map.delete(id);
+    const visible=new Set(current.map(geometryId).filter(Boolean));
+    for(const id of displays.keys())if(!visible.has(id))displays.delete(id);
+    for(const map of [assets,errors])for(const id of map.keys())if(!used.has(id))map.delete(id);
   }
   window.PrometheusModeling=Object.freeze({
     buildBox,ensure,getDisplay,exportAssets,stage,commitStage,retain,geometryId,initialize,
+    getError:solid=>errors.get(geometryId(solid)),
     setDisplayListener:fn=>{onDisplay=fn;},
     diagnostics:()=>({status,lastError,assets:assets.size,displayCaches:displays.size,pending:pending.size,assetBytes:[...assets.values()].reduce((n,a)=>n+a.brep.length,0)}),
     // Cache invalidation never changes exact geometry. Used on remesh and worker recovery.

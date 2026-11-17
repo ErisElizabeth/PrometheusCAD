@@ -5,6 +5,7 @@ import {chromium} from 'playwright-core';
 import {startServer,root} from '../tools/server.mjs';
 import path from 'node:path';
 const output=path.join(root,'tests/results');await fs.mkdir(output,{recursive:true});
+const localTemporary=path.join(root,'.cache/tmp');await fs.mkdir(localTemporary,{recursive:true});process.env.TEMP=localTemporary;process.env.TMP=localTemporary;
 const report={checks:[],failures:[]};
 async function check(name,fn){try{const detail=await fn();report.checks.push({name,status:'pass',detail});}catch(e){const failure={name,status:'fail',error:String(e),stack:e.stack};report.checks.push(failure);report.failures.push(failure);}}
 const server=await startServer();

@@ -5,9 +5,13 @@
   "type": "module",
   "scripts": {
     "serve": "node tools/server.mjs",
-    "test": "node tests/run.mjs",
+    "test": "node tests/all.mjs",
     "test:kernel": "node tests/kernel.mjs",
-    "portable": "node tools/package-portable.mjs"
+    "portable": "node tools/package-portable.mjs",
+    "test:legacy": "node tests/characterization.mjs",
+    "test:app": "node tests/run.mjs",
+    "test:portable": "node tests/portability.mjs",
+    "build:assets": "node tools/build-assets.mjs"
   },
   "devDependencies": {
     "electron": "45.3.0",
