@@ -1,0 +1,16 @@
+{
+  "name": "prometheuscad",
+  "version": "0.1.50",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "node tools/server.mjs",
+    "test": "node tests/run.mjs",
+    "test:kernel": "node tests/kernel.mjs",
+    "portable": "node tools/package-portable.mjs"
+  },
+  "devDependencies": {
+    "electron": "45.3.0",
+    "playwright-core": "1.65.0"
+  }
+}
