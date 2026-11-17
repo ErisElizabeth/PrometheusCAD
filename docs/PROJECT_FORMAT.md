@@ -31,3 +31,5 @@ This avoids repeating B-rep payloads in each snapshot. It does not make 100 dist
 Browser Save/Save As downloads JSON; Open uses the existing menu with a file input. Neither requires a server-side service. Desktop uses a narrow sandboxed preload/IPC bridge and native dialogs. A candidate file becomes the active save destination only after application validation succeeds. Saving writes a uniquely named sibling temporary file, syncs/closes it, and renames it over the target; failure leaves the current document intact. This is not a guarantee of power-loss durability on every filesystem.
 
 Desktop regression tests bypass the OS file chooser with an integration-local path, while exercising actual bridge/file I/O and close/relaunch. Interactive dialog usability and power-loss testing remain manual release checks.
+
+The current internal reader limits an individual B-rep text payload to 16 MiB; desktop save IPC limits JSON to 64 MiB of JavaScript string characters. Large-project limits and scaling require measurement before expanding these guards.

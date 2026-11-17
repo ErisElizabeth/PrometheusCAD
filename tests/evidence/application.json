@@ -1,0 +1,394 @@
+{
+  "startedAt": "2026-11-17T16:28:57.206Z",
+  "checks": [
+    {
+      "name": "2d-startup-does-not-initialize-kernel",
+      "status": "pass",
+      "detail": {
+        "status": "idle",
+        "lastError": "",
+        "assets": 0,
+        "displayCaches": 0,
+        "pending": 0,
+        "assetBytes": 0
+      }
+    },
+    {
+      "name": "application-box-default-origin-0",
+      "status": "pass",
+      "detail": {
+        "id": 1,
+        "volume": 1.9999999999999996
+      }
+    },
+    {
+      "name": "application-box-default-origin-5",
+      "status": "pass",
+      "detail": {
+        "id": 2,
+        "volume": 1.747739697749631
+      }
+    },
+    {
+      "name": "application-box-default-origin--5",
+      "status": "pass",
+      "detail": {
+        "id": 3,
+        "volume": 2.2726716789051746
+      }
+    },
+    {
+      "name": "application-box-default-origin-15",
+      "status": "pass",
+      "detail": {
+        "id": 4,
+        "volume": 1.291881449005953
+      }
+    },
+    {
+      "name": "application-box-default-origin--15",
+      "status": "pass",
+      "detail": {
+        "id": 5,
+        "volume": 2.89957660359269
+      }
+    },
+    {
+      "name": "application-box-default-offset-0",
+      "status": "pass",
+      "detail": {
+        "id": 6,
+        "volume": 1.9999999999999996
+      }
+    },
+    {
+      "name": "application-box-default-offset-5",
+      "status": "pass",
+      "detail": {
+        "id": 7,
+        "volume": 1.7477396977496311
+      }
+    },
+    {
+      "name": "application-box-default-offset--5",
+      "status": "pass",
+      "detail": {
+        "id": 8,
+        "volume": 2.2726716789051755
+      }
+    },
+    {
+      "name": "application-box-default-offset-15",
+      "status": "pass",
+      "detail": {
+        "id": 9,
+        "volume": 1.2918814490059527
+      }
+    },
+    {
+      "name": "application-box-default-offset--15",
+      "status": "pass",
+      "detail": {
+        "id": 10,
+        "volume": 2.89957660359269
+      }
+    },
+    {
+      "name": "application-box-asymmetric-origin-0",
+      "status": "pass",
+      "detail": {
+        "id": 11,
+        "volume": 6
+      }
+    },
+    {
+      "name": "application-box-asymmetric-origin-5",
+      "status": "pass",
+      "detail": {
+        "id": 12,
+        "volume": 5.70903128536313
+      }
+    },
+    {
+      "name": "application-box-asymmetric-origin--5",
+      "status": "pass",
+      "detail": {
+        "id": 13,
+        "volume": 6.299579764163117
+      }
+    },
+    {
+      "name": "application-box-asymmetric-origin-15",
+      "status": "pass",
+      "detail": {
+        "id": 14,
+        "volume": 5.136057158514987
+      }
+    },
+    {
+      "name": "application-box-asymmetric-origin--15",
+      "status": "pass",
+      "detail": {
+        "id": 15,
+        "volume": 6.944714207425065
+      }
+    },
+    {
+      "name": "application-box-asymmetric-offset-0",
+      "status": "pass",
+      "detail": {
+        "id": 16,
+        "volume": 6
+      }
+    },
+    {
+      "name": "application-box-asymmetric-offset-5",
+      "status": "pass",
+      "detail": {
+        "id": 17,
+        "volume": 5.70903128536313
+      }
+    },
+    {
+      "name": "application-box-asymmetric-offset--5",
+      "status": "pass",
+      "detail": {
+        "id": 18,
+        "volume": 6.299579764163118
+      }
+    },
+    {
+      "name": "application-box-asymmetric-offset-15",
+      "status": "pass",
+      "detail": {
+        "id": 19,
+        "volume": 5.136057158514987
+      }
+    },
+    {
+      "name": "application-box-asymmetric-offset--15",
+      "status": "pass",
+      "detail": {
+        "id": 20,
+        "volume": 6.944714207425065
+      }
+    },
+    {
+      "name": "metric-box-inputs-preserve-canonical-inches",
+      "status": "pass",
+      "detail": {
+        "type": "box",
+        "position": {
+          "x": 3.25,
+          "y": -2.5,
+          "z": -1.5000000000000002
+        },
+        "dimensions": {
+          "length": 2,
+          "width": 1,
+          "height": 1
+        },
+        "draftAngleDegrees": -5,
+        "topDimensions": {
+          "length": 2.174977327051848,
+          "width": 1.174977327051848
+        }
+      }
+    },
+    {
+      "name": "application-degenerate-and-tiny-feature-rejection-is-atomic",
+      "status": "pass",
+      "detail": {
+        "collapse": "Draft angle collapses or inverts the top face; reduce the positive draft angle.",
+        "tiny": "Error: Box geometry unsupported at edge:e5: MakeEdge e5 failed (error 3 BRepBuilderAPI_DifferentPointsOnClosedCurve). Requested dimensions were not changed.",
+        "same": true,
+        "historySame": true
+      }
+    },
+    {
+      "name": "svg-face-ownership-selection-and-geometric-edges",
+      "status": "pass",
+      "detail": {
+        "faces": [
+          {
+            "id": "top",
+            "triangles": 2,
+            "stroke": "none"
+          },
+          {
+            "id": "front",
+            "triangles": 2,
+            "stroke": "none"
+          },
+          {
+            "id": "left",
+            "triangles": 2,
+            "stroke": "none"
+          }
+        ],
+        "edges": 12,
+        "selected": {
+          "solidId": 1,
+          "faceIndex": 1,
+          "faceId": "top"
+        }
+      }
+    },
+    {
+      "name": "actual-svg-pointer-picks-whole-face",
+      "status": "pass",
+      "detail": {
+        "solidId": 1,
+        "faceIndex": 1,
+        "faceId": "top"
+      }
+    },
+    {
+      "name": "transform-commands-apply-once-and-undo-redo",
+      "status": "pass",
+      "detail": {
+        "error": 0,
+        "assetUnchanged": true,
+        "matrixPreserved": true,
+        "det": -1,
+        "historyHasBrep": false
+      }
+    },
+    {
+      "name": "clipboard-and-history-share-immutable-exact-assets",
+      "status": "pass",
+      "detail": {
+        "same": true,
+        "assets": 1,
+        "solids": 2,
+        "history": 100,
+        "historyHasBrep": false,
+        "clipboardHasBrep": false,
+        "stats": {
+          "status": "ready",
+          "lastError": "",
+          "assets": 1,
+          "displayCaches": 1,
+          "pending": 0,
+          "assetBytes": 1973
+        }
+      }
+    },
+    {
+      "name": "project-download-contains-brep-and-no-display-cache",
+      "status": "pass",
+      "detail": {
+        "bytes": 19307
+      }
+    },
+    {
+      "name": "closed-page-fresh-worker-project-reopen-and-subsequent-edit",
+      "status": "pass",
+      "detail": {
+        "loaded": {
+          "solids": 2,
+          "entities": 1
+        },
+        "history": 1
+      }
+    },
+    {
+      "name": "curved-brep-face-rendering-hole-and-picking",
+      "status": "pass",
+      "detail": {
+        "topPaths": 1,
+        "triangles": 75,
+        "hole": false,
+        "body": true,
+        "strokes": [
+          "none",
+          "none",
+          "none"
+        ],
+        "edges": 15,
+        "selected": "bore-wall",
+        "screenPoint": {
+          "x": 719.9999999999999,
+          "y": 820.6463963345079
+        }
+      }
+    },
+    {
+      "name": "native-project-file-input",
+      "status": "pass",
+      "detail": {
+        "solids": 2,
+        "status": "Project opened."
+      }
+    },
+    {
+      "name": "invalid-open-preserves-document-history-and-assets",
+      "status": "pass",
+      "detail": {
+        "error": "B-rep asset checksum mismatch",
+        "unchanged": true,
+        "historySame": true,
+        "assetsSame": true
+      }
+    },
+    {
+      "name": "legacy-snapshot-load-without-automatic-conversion",
+      "status": "pass",
+      "detail": {
+        "hasTopology": true,
+        "kernel": false,
+        "polygons": 6
+      }
+    },
+    {
+      "name": "invalid-and-tiny-box-are-atomic",
+      "status": "pass",
+      "detail": {
+        "tinyError": "Error: Box geometry unsupported at edge:e5: MakeEdge e5 failed (error 3 BRepBuilderAPI_DifferentPointsOnClosedCurve). Requested dimensions were not changed.",
+        "first": true,
+        "second": true,
+        "historySame": true
+      }
+    },
+    {
+      "name": "pending-box-cancel-and-document-change-do-not-commit",
+      "status": "pass",
+      "detail": {
+        "unchanged": true,
+        "disabled": false
+      }
+    },
+    {
+      "name": "kernel-initialization-failure-keeps-2d-and-document-working",
+      "status": "pass",
+      "detail": {
+        "message": "TypeError: Failed to fetch",
+        "solids": 0,
+        "entities": 3,
+        "types": [
+          "point",
+          "point",
+          "circle"
+        ],
+        "status": "failed"
+      }
+    },
+    {
+      "name": "display-cache-regeneration-preserves-exact-project",
+      "status": "pass",
+      "detail": {
+        "same": true,
+        "kernels": 2,
+        "valid": true
+      }
+    },
+    {
+      "name": "browser-runtime-errors",
+      "status": "pass",
+      "detail": []
+    }
+  ],
+  "failures": [],
+  "limitations": [],
+  "finishedAt": "2026-11-17T16:29:07.539Z"
+}

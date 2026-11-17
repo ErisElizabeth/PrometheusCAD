@@ -1,0 +1,373 @@
+{
+  "startedAt": "2026-11-17T16:31:21.945Z",
+  "checks": [
+    {
+      "name": "static-assets-cached-without-kernel-initialization",
+      "status": "pass",
+      "detail": {
+        "status": "idle",
+        "lastError": "",
+        "assets": 0,
+        "displayCaches": 0,
+        "pending": 0,
+        "assetBytes": 0
+      }
+    },
+    {
+      "name": "browser-server-stopped-offline-reload-and-signed-boxes",
+      "status": "pass",
+      "detail": [
+        {
+          "id": "default-origin-0",
+          "volume": 1.9999999999999996
+        },
+        {
+          "id": "default-origin-5",
+          "volume": 1.747739697749631
+        },
+        {
+          "id": "default-origin--5",
+          "volume": 2.2726716789051746
+        }
+      ]
+    },
+    {
+      "name": "real-camera-orbit-pan-zoom-preserves-document",
+      "status": "pass",
+      "detail": {
+        "orbit": {
+          "yaw": 1.335176877775662,
+          "pitch": 0.8903622646123873
+        },
+        "pan": {
+          "centerX": -0.11106592788046114,
+          "centerY": 0.40579215874101204,
+          "zoom": 3.5569464289781907,
+          "viewWidth": 3.9983734036966014,
+          "viewHeight": 2.4295671723850876,
+          "hasGeometry": true
+        },
+        "zoom": 4.268335714773829
+      }
+    },
+    {
+      "name": "offline-file-codec-fresh-page-fresh-worker",
+      "status": "pass",
+      "detail": {
+        "solids": 3,
+        "entities": 1,
+        "valid": true
+      }
+    },
+    {
+      "name": "file-url-retains-2d-without-kernel",
+      "status": "pass",
+      "detail": {
+        "entities": 1,
+        "kernel": "idle"
+      }
+    },
+    {
+      "name": "strict-csp-failure-isolated-from-2d",
+      "status": "pass",
+      "detail": {
+        "created": false,
+        "points": 1,
+        "message": "EvalError: Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'self' 'wasm-unsafe-eval'\".\n"
+      }
+    },
+    {
+      "name": "portable-electron-isolation-local-assets-and-no-eager-kernel",
+      "status": "pass",
+      "detail": {
+        "isPackaged": true,
+        "versions": {
+          "node": "24.22.2",
+          "acorn": "8.18.0",
+          "ada": "4.0.0",
+          "amaro": "1.1.11",
+          "ares": "1.34.9",
+          "brotli": "1.2.0",
+          "cldr": "48.0",
+          "icu": "78.2",
+          "llhttp": "9.4.3",
+          "merve": "1.2.2",
+          "modules": "150",
+          "napi": "10",
+          "nbytes": "0.1.4",
+          "ncrypto": "0.0.1",
+          "nghttp2": "1.70.0",
+          "nghttp3": "",
+          "ngtcp2": "",
+          "openssl": "0.0.0",
+          "simdjson": "4.6.11",
+          "simdutf": "7.7.0",
+          "sqlite": "3.53.4",
+          "tz": "2026e",
+          "undici": "7.30.1",
+          "unicode": "17.0",
+          "uv": "1.52.1",
+          "uvwasi": "0.0.23",
+          "v8": "15.6.75.50-electron.0",
+          "zlib": "1.3.2.1-motley",
+          "zstd": "1.6.0",
+          "electron": "45.3.0",
+          "chrome": "156.0.8078.96"
+        }
+      }
+    },
+    {
+      "name": "electron-box-default-origin-0",
+      "status": "pass",
+      "detail": {
+        "volume": 1.9999999999999996
+      }
+    },
+    {
+      "name": "electron-box-default-origin-5",
+      "status": "pass",
+      "detail": {
+        "volume": 1.747739697749631
+      }
+    },
+    {
+      "name": "electron-box-default-origin--5",
+      "status": "pass",
+      "detail": {
+        "volume": 2.2726716789051746
+      }
+    },
+    {
+      "name": "electron-box-default-origin-15",
+      "status": "pass",
+      "detail": {
+        "volume": 1.291881449005953
+      }
+    },
+    {
+      "name": "electron-box-default-origin--15",
+      "status": "pass",
+      "detail": {
+        "volume": 2.89957660359269
+      }
+    },
+    {
+      "name": "electron-box-default-offset-0",
+      "status": "pass",
+      "detail": {
+        "volume": 1.9999999999999996
+      }
+    },
+    {
+      "name": "electron-box-default-offset-5",
+      "status": "pass",
+      "detail": {
+        "volume": 1.7477396977496311
+      }
+    },
+    {
+      "name": "electron-box-default-offset--5",
+      "status": "pass",
+      "detail": {
+        "volume": 2.2726716789051755
+      }
+    },
+    {
+      "name": "electron-box-default-offset-15",
+      "status": "pass",
+      "detail": {
+        "volume": 1.2918814490059527
+      }
+    },
+    {
+      "name": "electron-box-default-offset--15",
+      "status": "pass",
+      "detail": {
+        "volume": 2.89957660359269
+      }
+    },
+    {
+      "name": "electron-box-asymmetric-origin-0",
+      "status": "pass",
+      "detail": {
+        "volume": 6
+      }
+    },
+    {
+      "name": "electron-box-asymmetric-origin-5",
+      "status": "pass",
+      "detail": {
+        "volume": 5.70903128536313
+      }
+    },
+    {
+      "name": "electron-box-asymmetric-origin--5",
+      "status": "pass",
+      "detail": {
+        "volume": 6.299579764163117
+      }
+    },
+    {
+      "name": "electron-box-asymmetric-origin-15",
+      "status": "pass",
+      "detail": {
+        "volume": 5.136057158514987
+      }
+    },
+    {
+      "name": "electron-box-asymmetric-origin--15",
+      "status": "pass",
+      "detail": {
+        "volume": 6.944714207425065
+      }
+    },
+    {
+      "name": "electron-box-asymmetric-offset-0",
+      "status": "pass",
+      "detail": {
+        "volume": 6
+      }
+    },
+    {
+      "name": "electron-box-asymmetric-offset-5",
+      "status": "pass",
+      "detail": {
+        "volume": 5.70903128536313
+      }
+    },
+    {
+      "name": "electron-box-asymmetric-offset--5",
+      "status": "pass",
+      "detail": {
+        "volume": 6.299579764163118
+      }
+    },
+    {
+      "name": "electron-box-asymmetric-offset-15",
+      "status": "pass",
+      "detail": {
+        "volume": 5.136057158514987
+      }
+    },
+    {
+      "name": "electron-box-asymmetric-offset--15",
+      "status": "pass",
+      "detail": {
+        "volume": 6.944714207425065
+      }
+    },
+    {
+      "name": "native-file-save-and-browser-codec-exchange",
+      "status": "pass",
+      "detail": {
+        "bytes": 401767,
+        "solids": 20
+      }
+    },
+    {
+      "name": "native-file-close-relaunch-open-and-subsequent-edit",
+      "status": "pass",
+      "detail": {
+        "solids": 20,
+        "faces": [
+          "bottom",
+          "top",
+          "front",
+          "right",
+          "back",
+          "left"
+        ],
+        "history": 1
+      }
+    },
+    {
+      "name": "native-failed-open-does-not-replace-current-document",
+      "status": "pass",
+      "detail": {
+        "rejected": true,
+        "unchanged": true
+      }
+    },
+    {
+      "name": "portable-native-capture",
+      "status": "pass",
+      "detail": {
+        "bytes": 218868
+      }
+    },
+    {
+      "name": "packaged-runtime-identical-to-tested-source",
+      "status": "pass",
+      "detail": {
+        "files": 31
+      }
+    },
+    {
+      "name": "protected-original-and-prototype-unchanged",
+      "status": "pass",
+      "detail": {
+        "original": 20,
+        "prototype": 183
+      }
+    }
+  ],
+  "failures": [],
+  "electron": {
+    "versions": {
+      "node": "24.22.2",
+      "acorn": "8.18.0",
+      "ada": "4.0.0",
+      "amaro": "1.1.11",
+      "ares": "1.34.9",
+      "brotli": "1.2.0",
+      "cldr": "48.0",
+      "icu": "78.2",
+      "llhttp": "9.4.3",
+      "merve": "1.2.2",
+      "modules": "150",
+      "napi": "10",
+      "nbytes": "0.1.4",
+      "ncrypto": "0.0.1",
+      "nghttp2": "1.70.0",
+      "nghttp3": "",
+      "ngtcp2": "",
+      "openssl": "0.0.0",
+      "simdjson": "4.6.11",
+      "simdutf": "7.7.0",
+      "sqlite": "3.53.4",
+      "tz": "2026e",
+      "undici": "7.30.1",
+      "unicode": "17.0",
+      "uv": "1.52.1",
+      "uvwasi": "0.0.23",
+      "v8": "15.6.75.50-electron.0",
+      "zlib": "1.3.2.1-motley",
+      "zstd": "1.6.0",
+      "electron": "45.3.0",
+      "chrome": "156.0.8078.96"
+    },
+    "isPackaged": true,
+    "appPath": "C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\build\\PrometheusCAD-Portable\\resources\\app",
+    "profile": "C:\\Users\\S. Jones\\Desktop\\PrometheusCAD-Integration\\.profiles\\electron",
+    "blocked": [],
+    "preferences": {
+      "allowRunningInsecureContent": false,
+      "contextIsolation": true,
+      "disableDialogs": false,
+      "disablePopups": false,
+      "disableWakeLocks": false,
+      "enableBlinkFeatures": "",
+      "experimentalFeatures": false,
+      "javascript": true,
+      "nodeIntegration": false,
+      "nodeIntegrationInSubFrames": false,
+      "nodeIntegrationInWorker": false,
+      "safeDialogs": false,
+      "safeDialogsMessage": "",
+      "sandbox": true,
+      "webSecurity": true,
+      "webviewTag": false
+    }
+  },
+  "finishedAt": "2026-11-17T16:31:44.406Z"
+}

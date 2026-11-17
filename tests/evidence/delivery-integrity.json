@@ -1,0 +1,204 @@
+{
+  "root": "C:/Users/S. Jones/Desktop/PrometheusCAD-Integration",
+  "branch": "feature/opencascade-integration",
+  "runtime": [
+    {
+      "file": "index.html",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "main.js",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "style.css",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "project.js",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "Calculator/Calculator.css",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "Calculator/Calculator.html",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "Calculator/Calculator.js",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "assets/AtkinsonHyperlegible-Bold.ttf",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "assets/AtkinsonHyperlegible-BoldItalic.ttf",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "assets/AtkinsonHyperlegible-Italic.ttf",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "assets/AtkinsonHyperlegible-Regular.ttf",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "assets/calculator.png",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "assets/fit.png",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "assets/home.png",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "assets/OFL.txt",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "assets/redo.png",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "assets/undo.png",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "assets/zoomIn.png",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "assets/zoomOut.png",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "assets/zoomWindow.png",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "modeling/adapter.js",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "modeling/kernel.mjs",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "modeling/svg.js",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "modeling/worker.mjs",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "vendor/opencascade/dist/index.js",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "vendor/opencascade/dist/node.js",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "vendor/opencascade/dist/opencascade.full.js",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "vendor/opencascade/dist/opencascade.full.wasm",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "offline.js",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "sw.js",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    },
+    {
+      "file": "assets-manifest.json",
+      "packaged": true,
+      "gitBytes": true,
+      "manifest": true
+    }
+  ],
+  "vendor": [
+    {
+      "file": "dist/opencascade.full.js",
+      "match": true
+    },
+    {
+      "file": "dist/opencascade.full.wasm",
+      "match": true
+    }
+  ],
+  "checkedAt": "2026-11-17T16:39:14.917Z",
+  "pass": true
+}

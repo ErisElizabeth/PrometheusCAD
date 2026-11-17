@@ -1,0 +1,102 @@
+{
+  "checks": [
+    {
+      "name": "2d-drawing-dimensions-text-dxf",
+      "status": "pass",
+      "detail": {
+        "types": [
+          "point",
+          "point",
+          "point",
+          "point",
+          "point",
+          "line",
+          "point",
+          "circle",
+          "text",
+          "dimension"
+        ],
+        "svg": 8
+      }
+    },
+    {
+      "name": "document-units-do-not-scale-geometry",
+      "status": "pass",
+      "detail": {
+        "value": 1,
+        "unchanged": true
+      }
+    },
+    {
+      "name": "2d-history-copy-paste-delete",
+      "status": "pass",
+      "detail": {
+        "undone": true,
+        "pasted": true,
+        "count": 12,
+        "expected": 12
+      }
+    },
+    {
+      "name": "layers-themes-and-shop-math",
+      "status": "pass",
+      "detail": {
+        "layers": 2,
+        "theme": "dark",
+        "value": 14
+      }
+    },
+    {
+      "name": "camera-and-affine-conventions",
+      "status": "pass",
+      "detail": {
+        "x": -0.5235931871908935,
+        "y": 3.6097403192587656,
+        "depth": -0.8340413669866198
+      }
+    },
+    {
+      "name": "legacy-box-placement-draft-transform-and-history",
+      "status": "pass",
+      "detail": {
+        "bottom": [
+          {
+            "id": "v0",
+            "x": 2.25,
+            "y": -3,
+            "z": -1.5
+          },
+          {
+            "id": "v0",
+            "x": 2.25,
+            "y": -3,
+            "z": -1.5
+          },
+          {
+            "id": "v0",
+            "x": 2.25,
+            "y": -3,
+            "z": -1.5
+          }
+        ],
+        "volumes": [
+          2,
+          1.7477396977496313,
+          2.272671678905175
+        ],
+        "vertex": {
+          "x": 3.25,
+          "y": -1,
+          "z": 1.5
+        },
+        "paths": 18
+      }
+    },
+    {
+      "name": "runtime-errors",
+      "status": "pass",
+      "detail": []
+    }
+  ],
+  "failures": []
+}

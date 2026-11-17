@@ -1,0 +1,772 @@
+{
+  "initializationMs": 5455.3048,
+  "checks": [
+    {
+      "name": "all-original-kernel-tests-retained",
+      "status": "pass"
+    },
+    {
+      "name": "default-origin-0",
+      "status": "pass",
+      "detail": {
+        "volume": 1.9999999999999996,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "default-origin-5",
+      "status": "pass",
+      "detail": {
+        "volume": 1.747739697749631,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "default-origin--5",
+      "status": "pass",
+      "detail": {
+        "volume": 2.2726716789051746,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "default-origin-15",
+      "status": "pass",
+      "detail": {
+        "volume": 1.291881449005953,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "default-origin--15",
+      "status": "pass",
+      "detail": {
+        "volume": 2.89957660359269,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "default-offset-0",
+      "status": "pass",
+      "detail": {
+        "volume": 1.9999999999999996,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "default-offset-5",
+      "status": "pass",
+      "detail": {
+        "volume": 1.7477396977496311,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "default-offset--5",
+      "status": "pass",
+      "detail": {
+        "volume": 2.2726716789051755,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "default-offset-15",
+      "status": "pass",
+      "detail": {
+        "volume": 1.2918814490059527,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "default-offset--15",
+      "status": "pass",
+      "detail": {
+        "volume": 2.89957660359269,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "asymmetric-origin-0",
+      "status": "pass",
+      "detail": {
+        "volume": 6,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "asymmetric-origin-5",
+      "status": "pass",
+      "detail": {
+        "volume": 5.70903128536313,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "asymmetric-origin--5",
+      "status": "pass",
+      "detail": {
+        "volume": 6.299579764163117,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "asymmetric-origin-15",
+      "status": "pass",
+      "detail": {
+        "volume": 5.136057158514987,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "asymmetric-origin--15",
+      "status": "pass",
+      "detail": {
+        "volume": 6.944714207425065,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "asymmetric-offset-0",
+      "status": "pass",
+      "detail": {
+        "volume": 6,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "asymmetric-offset-5",
+      "status": "pass",
+      "detail": {
+        "volume": 5.70903128536313,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "asymmetric-offset--5",
+      "status": "pass",
+      "detail": {
+        "volume": 6.299579764163118,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "asymmetric-offset-15",
+      "status": "pass",
+      "detail": {
+        "volume": 5.136057158514987,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "asymmetric-offset--15",
+      "status": "pass",
+      "detail": {
+        "volume": 6.944714207425065,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "rect-top-0.001",
+      "status": "pass",
+      "detail": {
+        "volume": 0.8341669999999999,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "rect-top-0.0001",
+      "status": "pass",
+      "detail": {
+        "volume": 0.8334166700000001,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "rect-top-0.00004",
+      "status": "pass",
+      "detail": {
+        "volume": 0.8333666671999999,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "rect-top-0.00002",
+      "status": "pass",
+      "detail": {
+        "volume": 0.8333500001333334,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "rect-top-0.000001",
+      "status": "pass",
+      "detail": {
+        "volume": 0.8333341666670001,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "known-tiny-edge-rejected-without-clamping",
+      "status": "pass"
+    },
+    {
+      "name": "rect-top-5e-10",
+      "status": "pass",
+      "detail": {
+        "rejection": "Draft angle collapses or inverts the top face; reduce the positive draft angle."
+      }
+    },
+    {
+      "name": "rect-top-0",
+      "status": "pass",
+      "detail": {
+        "rejection": "Draft angle collapses or inverts the top face; reduce the positive draft angle."
+      }
+    },
+    {
+      "name": "rect-top--0.000001",
+      "status": "pass",
+      "detail": {
+        "rejection": "Draft angle collapses or inverts the top face; reduce the positive draft angle."
+      }
+    },
+    {
+      "name": "square-top-0.001",
+      "status": "pass",
+      "detail": {
+        "volume": 1.3340003333333337,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "square-top-0.0001",
+      "status": "pass",
+      "detail": {
+        "volume": 1.3334000033333333,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "square-top-0.00004",
+      "status": "pass",
+      "detail": {
+        "volume": 1.3333600005333333,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "square-top-0.00002",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box top face is degenerate."
+      }
+    },
+    {
+      "name": "square-top-0.000001",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box top face is degenerate."
+      }
+    },
+    {
+      "name": "square-top-2e-9",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box top face is degenerate."
+      }
+    },
+    {
+      "name": "square-top-5e-10",
+      "status": "pass",
+      "detail": {
+        "rejection": "Draft angle collapses or inverts the top face; reduce the positive draft angle."
+      }
+    },
+    {
+      "name": "square-top-0",
+      "status": "pass",
+      "detail": {
+        "rejection": "Draft angle collapses or inverts the top face; reduce the positive draft angle."
+      }
+    },
+    {
+      "name": "square-top--0.000001",
+      "status": "pass",
+      "detail": {
+        "rejection": "Draft angle collapses or inverts the top face; reduce the positive draft angle."
+      }
+    },
+    {
+      "name": "reject-length-0",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box length must be greater than zero."
+      }
+    },
+    {
+      "name": "reject-length--1",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box length must be greater than zero."
+      }
+    },
+    {
+      "name": "reject-length-1e-9",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box length must be greater than zero."
+      }
+    },
+    {
+      "name": "reject-width-0",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box width must be greater than zero."
+      }
+    },
+    {
+      "name": "reject-width--1",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box width must be greater than zero."
+      }
+    },
+    {
+      "name": "reject-width-1e-9",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box width must be greater than zero."
+      }
+    },
+    {
+      "name": "reject-height-0",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box height must be greater than zero."
+      }
+    },
+    {
+      "name": "reject-height--1",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box height must be greater than zero."
+      }
+    },
+    {
+      "name": "reject-height-1e-9",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box height must be greater than zero."
+      }
+    },
+    {
+      "name": "reject-draft-90",
+      "status": "pass",
+      "detail": {
+        "rejection": "Draft angle must be greater than -90° and less than 90°."
+      }
+    },
+    {
+      "name": "reject-draft--90",
+      "status": "pass",
+      "detail": {
+        "rejection": "Draft angle must be greater than -90° and less than 90°."
+      }
+    },
+    {
+      "name": "reject-draft-91",
+      "status": "pass",
+      "detail": {
+        "rejection": "Draft angle must be greater than -90° and less than 90°."
+      }
+    },
+    {
+      "name": "reject-draft--91",
+      "status": "pass",
+      "detail": {
+        "rejection": "Draft angle must be greater than -90° and less than 90°."
+      }
+    },
+    {
+      "name": "reject-draft-45",
+      "status": "pass",
+      "detail": {
+        "rejection": "Draft angle collapses or inverts the top face; reduce the positive draft angle."
+      }
+    },
+    {
+      "name": "reject-nonfinite-x",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box values must all be finite numbers."
+      }
+    },
+    {
+      "name": "reject-nonfinite-y",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box values must all be finite numbers."
+      }
+    },
+    {
+      "name": "reject-nonfinite-z",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box values must all be finite numbers."
+      }
+    },
+    {
+      "name": "reject-nonfinite-draftAngleDegrees",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box values must all be finite numbers."
+      }
+    },
+    {
+      "name": "small-scale-0.001",
+      "status": "pass",
+      "detail": {
+        "volume": 1e-9,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "small-scale-0.00101",
+      "status": "pass",
+      "detail": {
+        "volume": 1.0303010000000002e-9,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "small-scale-0.01",
+      "status": "pass",
+      "detail": {
+        "volume": 0.000001,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "large-offset-positive",
+      "status": "pass",
+      "detail": {
+        "rejection": "Box topology has zero or inverted volume."
+      }
+    },
+    {
+      "name": "negative-near-angle-limit",
+      "status": "pass",
+      "detail": {
+        "volume": 4550.0561564308655,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "near-zero-positive",
+      "status": "pass",
+      "detail": {
+        "volume": 1.999999999476401,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "near-zero-negative",
+      "status": "pass",
+      "detail": {
+        "volume": 2.0000000005235985,
+        "counts": {
+          "face": 6,
+          "edge": 12,
+          "vertex": 8,
+          "solid": 1
+        }
+      }
+    },
+    {
+      "name": "curved-trimmed-bore-load-and-tessellation",
+      "status": "pass",
+      "detail": {
+        "triangles": 300
+      }
+    },
+    {
+      "name": "invalid-and-ambiguous-assets-rejected",
+      "status": "pass"
+    },
+    {
+      "name": "owned-wrapper-lifetime",
+      "status": "pass",
+      "detail": {
+        "created": 78827,
+        "deleted": 78827,
+        "cleanupErrors": []
+      }
+    }
+  ],
+  "failures": [],
+  "deviations": [
+    {
+      "id": "rect-top-2e-9",
+      "reason": "Legacy accepts; OCCT edge e5 construction rejects. No replacement or dimension changes."
+    }
+  ],
+  "unsupported": [
+    {
+      "name": "primitive-reference-output-binding-limit",
+      "detail": {
+        "status": "unsupported-as-output-parameters",
+        "binding": "Bnd_Box.Get(double&,...)",
+        "observed": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "workaround": "CornerMin()/CornerMax() return usable gp_Pnt objects"
+      }
+    }
+  ],
+  "referenceSummary": {
+    "tests": [
+      {
+        "name": "required-bindings",
+        "status": "pass"
+      },
+      {
+        "name": "box-validity-volume-bounds-and-identities",
+        "status": "pass"
+      },
+      {
+        "name": "boolean-through-hole-and-history",
+        "status": "pass"
+      },
+      {
+        "name": "coarse-fine-mesh-and-face-ownership",
+        "status": "pass"
+      },
+      {
+        "name": "display-mesh-open-bore-and-outward-winding",
+        "status": "pass"
+      },
+      {
+        "name": "transform-translation-kernel-versus-display",
+        "status": "pass"
+      },
+      {
+        "name": "transform-rotation-kernel-versus-display",
+        "status": "pass"
+      },
+      {
+        "name": "transform-reflection-kernel-versus-display",
+        "status": "pass"
+      },
+      {
+        "name": "transform-composition-kernel-versus-display",
+        "status": "pass"
+      },
+      {
+        "name": "brep-json-roundtrip-no-mesh-or-live-handles",
+        "status": "pass"
+      },
+      {
+        "name": "invalid-project-and-ambiguous-identities-rejected",
+        "status": "pass"
+      },
+      {
+        "name": "primitive-reference-output-binding-limit",
+        "status": "unsupported"
+      },
+      {
+        "name": "owned-object-cleanup-and-repeatability",
+        "status": "pass"
+      },
+      {
+        "name": "drafted-box-normal-and-rejection-compatibility",
+        "status": "pass"
+      },
+      {
+        "name": "drafted-box-bottom-fixed-under-signed-draft",
+        "status": "pass"
+      },
+      {
+        "name": "drafted-box-diagnostic-boundaries",
+        "status": "deviation"
+      }
+    ],
+    "draftedBox": {
+      "total": 63,
+      "normal": 20,
+      "passed": 62,
+      "failures": 0,
+      "deviations": 1,
+      "rejections": 28
+    }
+  }
+}

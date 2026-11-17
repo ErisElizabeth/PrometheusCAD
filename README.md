@@ -1561,6 +1561,8 @@ Changes made since V0.1.48:
 
 New Box commands use the locally packaged OpenCascade.js kernel through an asynchronous Web Worker. Zero and signed draft preserve the bottom-center placement convention. Legacy solids remain readable. The existing SVG workspace renders face-owned tessellation and actual geometric edges. File Open, Save and Save As now support .pcad JSON/B-rep projects; undo/redo and clipboard use shared exact-geometry references.
 
+Read the [integration results](docs/INTEGRATION_REPORT.md) and [complete changed-file list](docs/CHANGED_FILES.txt).
+
 This is an internal development build, with unresolved public-release requirements. See [kernel architecture and limits](docs/KERNEL_INTEGRATION.md), [native format](docs/PROJECT_FORMAT.md), and [third-party notices](THIRD_PARTY_NOTICES.md).
 
 ### Develop without a bundler
